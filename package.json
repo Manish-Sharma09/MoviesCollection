@@ -1,0 +1,44 @@
+{
+  "name": "movie-collection",
+  "version": "0.3.0",
+  "private": true,
+  "description": "Box office collection of films worldwide, built from free open data (Wikidata, Wikipedia).",
+  "type": "module",
+  "engines": {
+    "node": ">=22.18"
+  },
+  "scripts": {
+    "dev": "next dev",
+    "fetch": "node scripts/fetch-wikidata.mjs && node scripts/fetch-wikipedia.mjs && node scripts/fetch-history.mjs && node scripts/fetch-lists.mjs && node scripts/fetch-rates.mjs",
+    "fetch:worldwide": "node scripts/fetch-worldwide-chart.mjs",
+    "fetch:live": "WIKI_MAX_REFRESH=0 node scripts/fetch-wikipedia.mjs && node scripts/fetch-history.mjs",
+    "merge": "node scripts/merge.mjs",
+    "build": "node scripts/merge.mjs && npm run fetch:art && next build && node scripts/postbuild.mjs",
+    "fetch:art": "node scripts/fetch-posters.mjs && node scripts/fetch-people.mjs && node --env-file-if-exists=.env.local scripts/fetch-artwork.mjs",
+    "build:site": "next build && node scripts/postbuild.mjs",
+    "update": "npm run fetch && npm run build",
+    "preview": "node scripts/serve.mjs",
+    "lint": "eslint",
+    "typecheck": "tsc --noEmit",
+    "icons": "node scripts/make-icons.mjs",
+    "deploy": "npx wrangler@4 pages deploy out --project-name=${CF_PROJECT:-collection-board} --branch=main",
+    "test": "node --test scripts/*.test.mjs"
+  },
+  "dependencies": {
+    "@gsap/react": "^2.1.2",
+    "gsap": "^3.15.1",
+    "next": "16.4.6",
+    "react": "19.3.1",
+    "react-dom": "19.3.1",
+    "three": "^0.187.0"
+  },
+  "devDependencies": {
+    "@types/node": "^22",
+    "@types/react": "^19",
+    "@types/react-dom": "^19",
+    "@types/three": "^0.187.0",
+    "eslint": "^9",
+    "eslint-config-next": "16.4.6",
+    "typescript": "^5"
+  }
+}

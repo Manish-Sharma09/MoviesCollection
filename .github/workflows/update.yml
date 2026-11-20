@@ -1,0 +1,99 @@
+name: Update data and deploy
+
+on:
+  schedule:
+    - cron: '30 0 * * *' # full update every day at 06:00 IST
+    - cron: '0 */3 * * *' # films in cinemas: new figures every 3 hours
+  workflow_dispatch: {}
+
+permissions:
+  contents: read
+
+concurrency:
+  group: update-site
+  cancel-in-progress: false
+
+jobs:
+  update:
+    runs-on: ubuntu-latest
+    timeout-minutes: 150
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 24
+          cache: npm
+
+      - run: npm ci
+
+      # Keeps Wikidata metadata and Wikipedia results between runs, so a daily run only
+      # re-reads new releases and anything older than a week.
+      - uses: actions/cache@v4
+        with:
+          path: |
+            data/raw/wikidata.json
+            data/raw/wikipedia.json
+            data/raw/history.json
+            data/raw/rates.json
+            data/raw/lists.json
+            data/raw/artwork.json
+            data/raw/tmdb-people.json
+            data/raw/people.json
+            data/raw/posters.json
+            data/raw/worldwide-lifetime.json
+          key: raw-data-${{ github.run_id }}
+          restore-keys: raw-data-
+
+      # Next.js build cache (compiled code and downloaded fonts) makes rebuilds faster.
+      - uses: actions/cache@v4
+        with:
+          path: .next/cache
+          key: next-${{ hashFiles('package-lock.json') }}-${{ github.run_id }}
+          restore-keys: next-${{ hashFiles('package-lock.json') }}-
+
+      - run: npm test
+
+      # The 3-hourly run only re-reads films in cinemas; it needs last full run's data to start from.
+      - name: Fetch data
+        run: |
+          if [ "$SCHEDULE" = '0 */3 * * *' ] && [ -f data/raw/wikidata.json ]; then
+            npm run fetch:live
+          else
+            npm run fetch
+          fi
+        env:
+          SCHEDULE: ${{ github.event.schedule }}
+          CONTACT_UA: ${{ vars.CONTACT_UA }}
+
+      - name: Refresh worldwide lifetime chart
+        run: npm run fetch:worldwide
+        env:
+          BOX_OFFICE_CHART_URL: ${{ secrets.BOX_OFFICE_CHART_URL }}
+          BOX_OFFICE_CHART_TOKEN: ${{ secrets.BOX_OFFICE_CHART_TOKEN }}
+
+      # merge → artwork → next build (static export to out/) → postbuild (error pages, _headers, file count)
+      - name: Build site
+        run: npm run build
+        env:
+          SITE_URL: ${{ vars.SITE_URL }}
+          SITE_NAME: ${{ vars.SITE_NAME }}
+          GA_ID: ${{ vars.GA_ID }}
+          TMDB_READ_TOKEN: ${{ secrets.TMDB_READ_TOKEN }}
+          CONTACT_EMAIL: ${{ vars.CONTACT_EMAIL }}
+
+      # Creates the Cloudflare Pages project on the first run; fails harmlessly once it exists.
+      - name: Create Cloudflare Pages project
+        continue-on-error: true
+        uses: cloudflare/wrangler-action@v3
+        with:
+          apiToken: ${{ secrets.CLOUDFLARE_API_TOKEN }}
+          accountId: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
+          command: pages project create ${{ vars.CF_PROJECT || 'collection-board' }} --production-branch=main
+
+      - name: Deploy to Cloudflare Pages
+        uses: cloudflare/wrangler-action@v3
+        with:
+          apiToken: ${{ secrets.CLOUDFLARE_API_TOKEN }}
+          accountId: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
+          command: pages deploy out --project-name=${{ vars.CF_PROJECT || 'collection-board' }} --branch=main

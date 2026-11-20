@@ -1,0 +1,12 @@
+node_modules/
+.next/
+out/
+dist/
+data/raw/
+data/movies.json
+.backup/
+.DS_Store
+.wrangler/
+.env*
+*.tsbuildinfo
+next-env.d.ts
