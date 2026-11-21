@@ -157,6 +157,18 @@ async function main() {
     return money(s.amount, s.currency, { source: 'wikidata', asOf: s.date });
   };
 
+  // Hand-checked fixes for infobox grosses the parser misreads (data/gross-overrides.json).
+  // Each applies only while the infobox text is unchanged, so a later Wikipedia edit wins.
+  const overrides = JSON.parse(await readFile(new URL('../data/gross-overrides.json', import.meta.url), 'utf8'));
+  const usedOverrides = new Set();
+  const correctedGross = (field, film) => {
+    const fix = overrides[film.qid];
+    if (!fix || !field) return field;
+    if (field.text !== fix.text) return field;
+    usedOverrides.add(film.qid);
+    return { ...field, low: fix.low, high: fix.high ?? fix.low, approx: fix.approx ?? field.approx };
+  };
+
   const fromWikipedia = (field, film) => {
     if (!field?.currency) return null;
     let currency = field.currency;
@@ -211,7 +223,7 @@ async function main() {
     // reported. Wikidata is the fallback; its Indian figures in particular are often stale,
     // in dollars, or mistyped (e.g. ₹47 crore entered as ₹4,712 crore).
     const wdWorld = pick(statements, (s) => s.place === PLACE.WORLDWIDE);
-    const candidates = [fromWikipedia(page?.gross, film), wdWorld, pick(statements, (s) => !s.place)].filter(Boolean);
+    const candidates = [fromWikipedia(correctedGross(page?.gross, film), film), wdWorld, pick(statements, (s) => !s.place)].filter(Boolean);
     const gross = candidates.find((g) => verdict(g) !== 'bad');
     if (candidates.length && candidates[0] !== gross) {
       rejected.push(`${title}: ${candidates[0].text || `${candidates[0].currency} ${candidates[0].amount}`}${gross ? ' (used Wikidata instead)' : ''}`);
@@ -271,6 +283,11 @@ async function main() {
   console.log(
     `Merged ${films.length} films with a box office figure (Wikipedia: ${fromWp}, Wikidata: ${fromWd}) → data/movies.json`
   );
+  const stale = Object.keys(overrides).filter((qid) => qid.startsWith('Q') && !usedOverrides.has(qid));
+  if (stale.length) {
+    console.warn(`Unused gross overrides (infobox changed or film missing), check data/gross-overrides.json:\n  ${
+      stale.map((qid) => `${qid} ${overrides[qid].title}`).join('\n  ')}`);
+  }
   if (rejected.length) console.log(`Rejected ${rejected.length} figures not backed by Wikipedia's highest-grossing lists:\n  ${rejected.join('\n  ')}`);
 }
 

@@ -1,0 +1,16 @@
+{
+  "_comment": "Corrections to how scripts/merge.mjs parses a Wikipedia infobox gross, keyed by Wikidata id. An entry applies only while the infobox text still equals `text`; if editors change it, the override is ignored and merge prints a warning so the entry can be removed.",
+  "Q5681533": {
+    "title": "Haathkadi (1995 film)",
+    "text": "₹8,29 crore ( India Nett)",
+    "low": 82900000,
+    "reason": "Misplaced comma: ₹8.29 crore was parsed as ₹829 crore."
+  },
+  "Q10967355": {
+    "title": "Badal (1951 film)",
+    "text": "est. ₹0.9 crore (est. ₹645.3 crore as of 2016)",
+    "low": 9000000,
+    "approx": true,
+    "reason": "The bracketed inflation-adjusted 2016 figure was parsed instead of the release-era gross."
+  }
+}
