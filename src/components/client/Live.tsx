@@ -68,7 +68,9 @@ export function BoardCollection({ gross, native, live, reported, estimate }: {
 /** One character of the live figure. It rolls in when it first appears, unless it was there on load. */
 function Digit({ ch, animate }: { ch: string; animate: boolean }) {
   const [roll] = useState(animate); // fixed at mount: a digit that stays never re-animates
-  return <span className={roll ? 'digit roll' : 'digit'}>{ch}</span>;
+  // Separators (, and .) are marked apart so the film page's board can put only the digits on flip tiles.
+  const kind = /\d/.test(ch) ? 'digit' : 'digit sep';
+  return <span className={roll ? `${kind} roll` : kind}>{ch}</span>;
 }
 
 function Digits({ text, animate }: { text: string; animate: boolean }) {
@@ -105,20 +107,20 @@ interface StatProps {
   range?: ReactNode;
 }
 
-/** The headline of a film page: label, figure and the other currency. */
+/** The headline of a film page: label, figure, and one quiet line (the other currency, any reported range). */
 export function StatMain({ gross, native, label, range }: StatProps) {
   return (
     <div className="stat-main">
       <div className="stat-top"><p className="stat-label">{label}</p></div>
       <span className="stat-figure"><Money {...gross} native={native} /></span>
-      <p className="stat-alt"><Money {...gross} native={native} alt />{range}</p>
+      <p className="stat-line"><span className="stat-sub"><Money {...gross} native={native} alt />{range ? <> · {range}</> : null}</span></p>
     </div>
   );
 }
 
 /** A film in cinemas: the live estimate, today's takings, and a ring counting down to the next 5-minute step. */
 export function LiveStatMain({ live, ...props }: StatProps & { live: LiveInfo }) {
-  const { gross, native, range } = props;
+  const { gross, native } = props;
   const lang = useLang();
   const mode = useCurrency();
   const text = CLIENT_TEXT[lang];
@@ -130,6 +132,7 @@ export function LiveStatMain({ live, ...props }: StatProps & { live: LiveInfo })
   const cur = mode || native;
   const alt = otherCurrency(cur);
   const secondsLeft = Math.max(1, Math.ceil((step + STEP - real) / 1000));
+  const clock = `${Math.floor(secondsLeft / 60)}:${String(secondsLeft % 60).padStart(2, '0')}`;
   const progress = (real - step) / STEP;
   const fine = (m: MoneyValue, c = cur) => formatFine(c, m.usd, m.inr, lang);
   const compact = (m: MoneyValue) => formatMoney(m, cur, lang);
@@ -143,19 +146,15 @@ export function LiveStatMain({ live, ...props }: StatProps & { live: LiveInfo })
             {/* Keyed by step: a new step starts an empty ring instead of winding back. */}
             <circle key={step} className="fill" cx="10" cy="10" r="8" pathLength={1} strokeDasharray="1" strokeDashoffset={1 - progress} />
           </svg>
-          {text.nextUpdate} <b>{secondsLeft}s</b>
+          {text.nextUpdate} <b>{clock}</b>
         </p>
       </div>
       <span className="stat-figure is-live" title={text.liveTitle(timeIST(step))}>
         <Figure parts={splitFigure(cur, state.usd, state.inr, lang)} />
       </span>
-      <p className="live-today">{state.today.inr > 0 ? text.today(fine(state.today)) : text.noShows}</p>
-      <p className="stat-alt"><span className="m">{fine(state, alt)}</span>{range}</p>
-      <p className="live-note">
-        {[
-          state.perHour.inr > 0 ? text.perHour(compact(state.perHour)) : text.beforeShows,
-          text.lastReported(compact(gross), timeIST(step)),
-        ].join('\n')}
+      <p className="stat-line">
+        <span className="live-today">{state.today.inr > 0 ? text.today(fine(state.today)) : text.noShows}</span>
+        <span className="stat-sub"><span className="m">{fine(state, alt)}</span> · {text.lastReported(compact(gross))}</span>
       </p>
     </div>
   );

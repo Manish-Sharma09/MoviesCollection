@@ -3,7 +3,7 @@
 export const THEME_KEY = 'cb.theme';
 
 /** Browser chrome colour (status bar, tab strip) for each theme; matches --bg in site.css. */
-export const THEME_COLORS = { light: '#f2f2f7', dark: '#000000' } as const;
+export const THEME_COLORS = { light: '#0f1116', dark: '#07080b' } as const;
 
 const theme = `try{var t=localStorage.getItem('${THEME_KEY}');if(t==='light'||t==='dark'){d.dataset.theme=t;document.querySelectorAll('meta[name=theme-color]').forEach(function(m){m.content=t==='light'?'${THEME_COLORS.light}':'${THEME_COLORS.dark}'})}}catch(e){}`;
 

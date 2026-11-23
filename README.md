@@ -7,6 +7,8 @@ Everything is automatic and costs nothing:
 | Part | Free service |
 |---|---|
 | Film list, box office, budget | Wikidata (open data) + English Wikipedia infoboxes |
+| All-time worldwide chart | Wikipedia's "List of highest-grossing films" |
+| Posters, photos of people | Wikipedia infoboxes, Wikimedia Commons |
 | Exchange rates | frankfurter.dev (European Central Bank) |
 | Daily update | GitHub Actions (scheduled) |
 | Hosting, email forwarding | Cloudflare Pages, Cloudflare Email Routing |
@@ -28,7 +30,8 @@ npm run fetch:art   # film posters (Wikipedia) and photos of people (Wikimedia C
 npm run preview     # serve out/ at http://localhost:4321, like Cloudflare Pages
 npm run lint        # ESLint
 npm run typecheck   # TypeScript
-npm test            # check the money parser
+npm test            # check the money and chart parsers
+npm run fetch:worldwide  # re-read Wikipedia's all-time chart (also part of npm run fetch)
 npm run icons       # redraw the app icons + share image after changing SITE_NAME or the logo (macOS + Chrome)
 npm run deploy      # upload out/ to Cloudflare Pages by hand (needs `npx wrangler login` once)
 ```
@@ -40,12 +43,13 @@ npm run deploy      # upload out/ to Cloudflare Pages by hand (needs `npx wrangl
 3. In Cloudflare, create an API token with the **Cloudflare Pages: Edit** permission and copy your Account ID.
 4. In the GitHub repo, open **Settings → Secrets and variables → Actions** and add:
    - Secrets: `CLOUDFLARE_API_TOKEN`, `CLOUDFLARE_ACCOUNT_ID`
-   - Optional secret `TMDB_READ_TOKEN`: not needed (posters come from Wikipedia); see "Posters and photos".
    - Variables (all optional):
      - `SITE_URL`: your address, e.g. `https://yourdomain.com` (default `https://collection-board.pages.dev`)
      - `SITE_NAME`: shown in the logo, titles and legal pages
      - `GA_ID`: Google Analytics 4 measurement ID (`G-XXXXXXX`). Without it, no analytics code is added.
+     - `ADSENSE_CLIENT`, `ADSENSE_SLOT`: Google AdSense, see "Ads" below. Without them, no ad code is added.
      - `CONTACT_EMAIL`: shown on the contact and legal pages. Defaults to `contact@yourdomain.com` once `SITE_URL` is a custom domain.
+     - `SITE_OWNER`: the person or business that runs the site, named on the about page and as the author of the guides. Without it they say "an independent project run from India" and "the Collection Board team" (with your `SITE_NAME`).
      - `CF_PROJECT`: Pages project name (default `collection-board`)
      - `CONTACT_UA`: e.g. `CollectionBoard/1.0 (https://yourdomain.com)` so Wikipedia knows who is fetching
 5. Open the **Actions** tab, choose **Update data and deploy** and press **Run workflow**. After that it runs by itself every day at 06:00 IST.
@@ -56,6 +60,47 @@ npm run deploy      # upload out/ to Cloudflare Pages by hand (needs `npx wrangl
 - The next build writes a `_headers` rule that sends `X-Robots-Tag: noindex` for `*.pages.dev`, so Google only indexes your domain. (While `SITE_URL` is still a pages.dev address that rule is left out, otherwise the whole site would be hidden.)
 - Turn on **Email Routing** for the domain in Cloudflare and forward `contact@yourdomain.com` to your Gmail.
 - Add the site to Google Search Console and Bing Webmaster Tools and submit `https://yourdomain.com/sitemap.xml`.
+
+## High-quality banners (your own images)
+
+Wikipedia keeps film posters at about 280px wide, so for the films you want to feature (the latest releases),
+drop your own images into `public/banners/`, named after the film's slug (the part of its address after `/movie/`):
+
+| File | Size | Where it shows |
+| --- | --- | --- |
+| `<slug>.jpg` | wide, about 1920×1080 | Home page spotlight (sharp, full-bleed, replaces the poster card) and the film page's board |
+| `<slug>-poster.jpg` | portrait, about 600×900 | Replaces the Wikipedia poster everywhere posters show at 330px or larger |
+
+For example `public/banners/ramayana-part-1-2026.jpg` and `public/banners/ramayana-part-1-2026-poster.jpg`.
+`.jpg`, `.png`, `.webp` and `.avif` all work; keep each file under about 400 KB (WebP at quality 80 is a good choice).
+Replacing a file shows the new one at once (its modified time is part of the address). Restart `npm run dev` after
+adding files; production builds pick them up automatically. Use only images you have the right to use, such as
+official press or promotional stills released by the studio.
+
+## IMDb ratings (off by default)
+
+The site can show each film's IMDb rating (a yellow IMDb badge on cards, the home page spotlight and film pages),
+read from IMDb's daily dataset by `scripts/fetch-ratings.mjs`. IMDb licenses that dataset for **personal and
+non-commercial use only**, and a site that shows ads is commercial, so it is **off**: nothing is downloaded and no
+rating is shown. Turn it on only with a licence that covers your use, by setting `IMDB_RATINGS=1` (a GitHub
+Actions variable, or in the shell locally). Films with fewer than 100 votes never show a rating.
+
+## Ads (Google AdSense)
+
+The site is ready for AdSense but shows no ads until you turn them on. AdSense only approves sites on a domain you own, so add your custom domain first (see above).
+
+Before applying, check what reviewers look for:
+
+- **Trust pages**: about (who runs the site, how figures are checked), contact, privacy policy (with the ad-cookie disclosures Google requires), terms and disclaimer are all linked from every page's footer. Set `SITE_OWNER` and make sure the contact address works; `npm run build` prints an "AdSense readiness" warning when the domain, contact address or owner is missing.
+- **Original content**: the guides in `src/content/guides.ts` (`/guides/`) are the site's own writing, alongside the data pages. Adding more guides over time helps; each is one object in that file, and the home page, sitemap and guide index pick it up automatically.
+- **Indexing**: add the domain to Google Search Console, submit the sitemap, and wait until the main pages are indexed before requesting a review.
+
+1. Sign up at [adsense.google.com](https://adsense.google.com/) and add your domain. Your publisher ID looks like `ca-pub-1234567890123456`.
+2. Set it as the GitHub Actions variable `ADSENSE_CLIENT` and run the workflow. Every page then carries the AdSense tag and the `google-adsense-account` meta tag (for verification), `/ads.txt` is published, and the privacy policy and terms gain their advertising sections. Request a review in AdSense; approval can take a few days to a few weeks.
+3. In AdSense, open **Privacy & messaging** and publish the **European regulations** message (Google's own consent banner for the EEA, UK and Switzerland; required for ads there), and the **US state regulations** message. The pages already set Google Consent Mode defaults: no ad or analytics cookies for visitors from those regions until they agree.
+4. Choose how ads are placed:
+   - **Auto ads** (simplest): turn them on for the site in AdSense. Google picks the places; nothing to set here.
+   - **Fixed slots**: create a *Display ad* unit in AdSense and set its 10-digit ID as the variable `ADSENSE_SLOT`. Pages then get one slot after their content, the home page one after the recent releases and film pages one after the facts. Each slot is labelled "Advertisement", reserves its space so the page does not jump, and disappears when AdSense has nothing to fill it with. Error pages never get one.
 
 ## How the Next.js build works
 
@@ -73,7 +118,7 @@ npm run deploy      # upload out/ to Cloudflare Pages by hand (needs `npx wrangl
 - Hindi versions of the main pages under `/hi/`, linked with `hreflang` (en, hi, x-default) in each page and in the sitemap. Film and people pages are English only: translating them would add ~13,000 files, past Cloudflare Pages' 20,000-file limit.
 - Home page guide text (~900 words) and a 14-question FAQ with `FAQPage` JSON-LD, in both languages. Club sizes, the top films and exchange rates in the text are filled in from the data on every build.
 - About, contact, privacy policy and terms pages; 404 pages in both languages (Cloudflare serves `/hi/404.html` for missing `/hi/` pages) and a `500.html`.
-- `sitemap.xml`, `robots.txt`, `_headers` (security headers, caching, pages.dev noindex), `manifest.webmanifest`, favicons and a 1200×630 share image.
+- `sitemap.xml`, `robots.txt`, `_headers` (security headers, caching, pages.dev noindex), `manifest.webmanifest`, favicons and a 1200×630 share image; `ads.txt` once `ADSENSE_CLIENT` is set.
 - Structured data: `WebSite`, `FAQPage`, `Movie`, `BreadcrumbList` and `ItemList` (charts).
 
 Text lives in `src/content/en.ts` and `src/content/hi.ts` (browser text in `src/content/client-text.ts`); styles in `src/styles/site.css`.
@@ -93,19 +138,9 @@ The interface follows Apple's design principles, from the `apple-design` skill i
 
 ## Worldwide lifetime chart
 
-The all-time page and homepage display the latest valid Box Office Mojo top-200 snapshot available to the build, with its source timestamp. Matched film pages show the chart figure alongside the catalog figures.
+The all-time page (`/top/`, 500 places) and the home page's top 10 start with the top-50 table of Wikipedia's [List of highest-grossing films](https://en.wikipedia.org/wiki/List_of_highest-grossing_films), which editors keep current from the trade trackers. Every other film follows by the worldwide gross on its own Wikipedia article. The page says which is which, links the list and gives the time it was last edited. Film pages of films on the list show the list's figure and rank next to their own.
 
-For automatic updates, supply an HTTPS JSON feed backed by authorized Box Office Mojo data. Use the IMDb/Box Office Mojo licensed product or your existing licensed provider to prepare a feed with this shape:
-
-```json
-{"asOf":"2026-11-19T17:13:00-08:00","films":[["Example film",2026,100000000]]}
-```
-
-Include all 200 rows in published order, with one title, release year and integer worldwide USD gross per row. Use the source's timestamp, including its time zone. The single row above only illustrates the format.
-
-Set the feed URL as the GitHub Actions secret `BOX_OFFICE_CHART_URL` and, for a bearer-authenticated feed, set `BOX_OFFICE_CHART_TOKEN`. The existing workflow checks the feed every three hours and on the daily update. For a local refresh, supply the same environment variables and run `npm run fetch:worldwide` before `npm run build`.
-
-If the request fails, the response is invalid, or the source timestamp has not advanced, the site uses the last valid cached chart or the bundled snapshot in `data/worldwide-lifetime.json`.
+`scripts/fetch-worldwide-chart.mjs` (part of `npm run fetch`) checks the list's latest revision and, when it has changed, reads the table from the rendered page (the parse API's HTML, so totals computed with templates and footnote markers come out as plain figures; parser in `scripts/lib/wikipedia-chart.mjs`, tested in `scripts/wikipedia-chart.test.mjs`). Links to redirects are resolved, so rows match films by their article. Unreadable rows, a missing table or a request failure keep the last valid copy in `data/raw/`, or the bundled snapshot in `data/worldwide-lifetime.json`.
 
 ## Animation
 
@@ -125,17 +160,19 @@ The home hero's featured poster becomes a 3D stack of the films in cinemas, draw
 - **`poster-stack.ts`** draws the front card exactly over the page's poster, which is hidden only once that card is there, so the swap is invisible. The next films fan out behind it to the left, receding in depth. Every 5 seconds the front card swings off to the right and the next one comes forward. Drag (mouse or touch) to scrub, click a card behind to bring it forward, or click the front card to open the film. Hovering tilts the front card toward the pointer under a soft highlight, like a focused poster on Apple TV.
 - **Controls** beside the figure: previous, pause/play, next. Automatic moves also wait while the pointer or keyboard focus is on the stack. Screen readers hear the new film's title when a visitor changes it (not on automatic moves).
 - **Cheap to run:** unlit planes with one small shader (rounded corners, highlight, 1 px edge) and a soft shadow plane per card, at most 2× pixel density. Frames are drawn only while something moves, and none while the hero is scrolled away or the tab is hidden. If the WebGL context is lost or the window gets narrower than 761 px, the page's own poster comes back, showing the current film.
-- **Posters as textures:** TMDB sends its CORS header only to requests that carry an `Origin`, and caches without varying on it, so a copy cached by the page's `<img>` fails WebGL's CORS check. The stack fetches each poster in CORS mode and, if the cached copy is refused, fetches it again past the cache. Wikimedia always sends the header.
+- **Posters as textures:** Wikimedia sends a CORS header with every image, so WebGL can read the posters. The stack still fetches each poster in CORS mode and, if a cached copy is refused, fetches it again past the cache.
 
 ## Posters and photos
 
 Everything here is free and needs no key.
 
-**Film posters** come from each film's English Wikipedia article: the image in its infobox, read through the free MediaWiki API (`scripts/fetch-posters.mjs`, cache `data/raw/posters.json`). Posters are copyrighted; Wikipedia shows them at low resolution to identify the film, and the site uses them the same way (small, next to the film's figures), as the footer says. They are re-read monthly, and every 2 days for films released in the last 90 days. The 67 posters and backdrops bundled in `data/featured-art.json` (from TMDB) are used where they exist, and the home page banner uses their backdrops. A film with neither shows a title tile.
+**Film posters** come from each film's English Wikipedia article: the image in its infobox, read through the free MediaWiki API (`scripts/fetch-posters.mjs`, cache `data/raw/posters.json`). Posters are copyrighted; Wikipedia shows them at low resolution to identify the film, and the site uses them the same way (small, next to the film's figures), as the footer and terms say; the terms also ask rights holders to use the contact page for removals. They are re-read monthly, and every 2 days for films released in the last 90 days. The home page banner is the featured film's poster, blurred. A film without a poster shows a title tile.
+
+**India and overseas totals** (the Worldwide / Overseas / India net switch on film pages) come from the "Box office" section of each Indian film's Wikipedia article (`scripts/fetch-boxoffice.mjs`, parser `scripts/lib/boxoffice-text.mjs`, cache `data/raw/boxoffice.json`). Infoboxes only give the worldwide gross. The parser takes an amount only when the words around it name the market and the measure, and skips opening-day and weekend figures, single-language versions, milestones passed ("crossed ₹500 crore"), floors ("over ₹600 crore") and comparisons with other films. `src/lib/data.ts` then shows a figure only if it agrees with the worldwide gross. Day-by-day figures stay worldwide only: no free source reports daily India or overseas splits. About 190 Indian films have at least one figure; films released in the last 120 days are re-read every 6 hours, the rest monthly.
 
 **Photos of actors and directors** come from Wikimedia Commons, through Wikidata (`scripts/fetch-people.mjs`, cache `data/raw/people.json`). Each film's own cast and director entries on Wikidata say exactly who is meant, so people who share a name are not mixed up. People with their own page are also looked up by name, and accepted only if the match is a person with a film occupation. Commons photos are freely licensed, and every one is credited with its photographer and licence: under the photo on person pages, and under "Photo credits" in a film's cast. People without a photo show their initials. A run only re-checks what is more than ~45 days old (3 days for films in cinemas); the first run reads the cast of every film and takes about 40 minutes.
 
-*Optional:* `scripts/fetch-artwork.mjs` can also fetch TMDB posters, backdrops and cast photos if a `TMDB_READ_TOKEN` is set (in `.env.local` or as a GitHub secret). TMDB's API is free only for non-commercial sites, so it is off by default.
+TMDB and Box Office Mojo are deliberately not used: both require a paid licence for a site that earns money (TMDB counts ads as commercial use; IMDb's terms forbid reusing Box Office Mojo data).
 
 ## Live collection
 
@@ -165,15 +202,15 @@ src/app/hi/                  Hindi pages and their root layout (/hi/, /hi/top/, 
 src/app/sitemap.ts, robots.ts, manifest.ts, search.json/, live.json/   generated files
 src/views/                   the pages themselves, shared by both languages (home, live, charts, film, site-pages)
 src/components/              header/footer (PageShell), document (SiteDocument), lists, posters, JSON-LD
-src/components/client/       browser components: ₹/$ switch, live estimates, search, theme, chart
+src/components/client/       browser components: ₹/$ switch, live estimates, search, theme, chart, ad slot
 src/components/client/motion/  GSAP animations (hero, scroll reveals, count-ups, bars)
 src/components/client/three/   three.js 3D poster stack in the home hero (loaded on demand)
 src/content/en.ts, hi.ts     English and Hindi text: UI, home guide, FAQ, about, contact, privacy, terms
 src/lib/data.ts              loads data/movies.json once and builds the indexes (years, languages, people, clubs)
 src/lib/format.ts, live.ts   money formatting and the live estimate model (also used by scripts/merge.mjs)
-src/lib/worldwide-chart.ts   Box Office Mojo top-200 snapshot (also used by scripts/fetch-worldwide-chart.mjs)
+src/lib/worldwide-chart.ts   Wikipedia all-time chart snapshot (also used by scripts/fetch-worldwide-chart.mjs)
 src/styles/site.css          all styles
-public/                      icons, share image, TMDB logo
+public/                      icons, share image
 scripts/fetch-wikidata.mjs   films, box office and budget statements from Wikidata
 scripts/fetch-wikipedia.mjs  gross / budget / starring from Wikipedia infoboxes
 scripts/fetch-history.mjs    day-by-day totals from Wikipedia edit history (films in cinemas)
@@ -181,11 +218,13 @@ scripts/fetch-lists.mjs      films on Wikipedia's highest-grossing lists (vandal
 scripts/fetch-rates.mjs      exchange rates
 scripts/fetch-posters.mjs    film posters from Wikipedia infoboxes (no key)
 scripts/fetch-people.mjs     photos of actors and directors from Wikidata + Wikimedia Commons (no key)
-scripts/fetch-artwork.mjs    optional TMDB posters, backdrops and cast photos (only with TMDB_READ_TOKEN)
+scripts/fetch-boxoffice.mjs  India net / India gross / overseas totals from Wikipedia 'Box office' sections (no key)
+scripts/fetch-worldwide-chart.mjs  all-time chart from Wikipedia's List of highest-grossing films
 scripts/merge.mjs            picks one figure per film → data/movies.json
-scripts/postbuild.mjs        error pages, removes RSC payload files, _headers, file-count check
+scripts/postbuild.mjs        error pages, removes RSC payload files, _headers, ads.txt, file-count check
 scripts/serve.mjs            local preview of out/
 scripts/make-icons.mjs       renders PNG icons, favicon.ico and og-image.png with Chrome
 scripts/lib/wikitext.mjs     wikitext + money parser (tested in scripts/wikitext.test.mjs)
+scripts/lib/wikipedia-chart.mjs  all-time chart table parser (tested in scripts/wikipedia-chart.test.mjs)
 .github/workflows/update.yml daily update and deploy
 ```

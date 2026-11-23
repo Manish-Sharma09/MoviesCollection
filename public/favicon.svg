@@ -1,1 +1,15 @@
-<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 64 64"><defs><linearGradient id="b" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#ffbf47"/><stop offset="1" stop-color="#ff7a1a"/></linearGradient><mask id="c"><rect width="64" height="40" fill="#fff"/><path d="M14 24h6v5h-6zM23 17h6v12h-6zM32 10h6v19h-6z"/><path stroke="#000" stroke-width="2.4" stroke-dasharray="3 3" fill="none" d="M48 9v22"/></mask></defs><rect width="64" height="64" rx="14.5" fill="url(#b)"/><path transform="translate(6.4 16) scale(0.8)" fill="#fff" mask="url(#c)" d="M8 4h48a4 4 0 0 1 4 4v7a5 5 0 0 0 0 10v7a4 4 0 0 1-4 4H8a4 4 0 0 1-4-4v-7a5 5 0 0 0 0-10V8a4 4 0 0 1 4-4z"/></svg>
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 64 64" role="img" aria-labelledby="title">
+  <title id="title">Collection Board</title>
+  <defs>
+    <linearGradient id="amber" x1="8" y1="0" x2="56" y2="64" gradientUnits="userSpaceOnUse">
+      <stop stop-color="#ffbf47"/>
+      <stop offset="1" stop-color="#ff7a1a"/>
+    </linearGradient>
+  </defs>
+  <rect width="64" height="64" rx="15" fill="url(#amber)"/>
+  <path fill="#1d1d1f" fill-rule="evenodd"
+        d="M16 17h32a5 5 0 0 1 5 5v4a6 6 0 0 0 0 12v4a5 5 0 0 1-5 5H16a5 5 0 0 1-5-5v-4a6 6 0 0 0 0-12v-4a5 5 0 0 1 5-5Z
+           M20 35a1 1 0 0 1 1-1h4a1 1 0 0 1 1 1v5h-6Z
+           M29 30a1 1 0 0 1 1-1h4a1 1 0 0 1 1 1v10h-6Z
+           M38 25a1 1 0 0 1 1-1h4a1 1 0 0 1 1 1v15h-6Z"/>
+</svg>

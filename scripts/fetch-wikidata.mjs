@@ -54,8 +54,6 @@ SELECT ?film ?k ?v WHERE {
   } UNION {
     ?film wdt:P345 ?v BIND("imdb" AS ?k)
   } UNION {
-    ?film wdt:P4947 ?v BIND("tmdb" AS ?k)
-  } UNION {
     ?film wdt:P2047 ?rt BIND(STR(?rt) AS ?v) BIND("runtime" AS ?k)
   }
 }`;
@@ -81,7 +79,7 @@ function toStatements(rows) {
 function emptyFilm(id) {
   return {
     qid: id, label: null, enwiki: null, date: null, countries: [], languages: [],
-    directors: [], imdb: null, tmdb: null, runtime: null,
+    directors: [], imdb: null, runtime: null,
   };
 }
 

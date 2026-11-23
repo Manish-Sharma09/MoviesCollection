@@ -31,7 +31,7 @@ const shortDate = (ms: number) =>
   new Date(ms).toLocaleDateString('en-IN', { day: 'numeric', month: 'short', timeZone: 'Asia/Kolkata' });
 
 /** Round axis steps: 1, 2, 2.5 or 5 × 10ⁿ, about four gridlines. */
-function niceTicks(max: number): number[] {
+export function niceTicks(max: number): number[] {
   if (!(max > 0)) return [0];
   const rough = max / 4;
   const mag = 10 ** Math.floor(Math.log10(rough));
@@ -43,8 +43,10 @@ function niceTicks(max: number): number[] {
   return ticks;
 }
 
-export function CollectionChart({ days, release, native, live, gross }: {
+export function CollectionChart({ days, release, native, live, gross, bare = false }: {
   days: DailyRow[]; release: string; native: Currency; live?: LiveInfo; gross: MoneyValue;
+  /** Inside another panel: the running total only, without its own card, title or switch. */
+  bare?: boolean;
 }) {
   const lang = useLang();
   const mode = useCurrency();
@@ -204,14 +206,17 @@ export function CollectionChart({ days, release, native, live, gross }: {
   const tipY = current ? y(current.value) : 0;
 
   return (
-    <figure className="chart-card" aria-labelledby={titleId} data-reveal="">
-      <div className="chart-head">
-        <figcaption id={titleId}>{view === 'total' ? 'Worldwide total, day by day' : 'Collection each day'}</figcaption>
-        <div className="segmented" role="group" aria-label="Show" data-index={view === 'total' ? 0 : 1}>
-          <button type="button" aria-pressed={view === 'total'} onClick={() => { setView('total'); setActive(null); }}>Total</button>
-          <button type="button" aria-pressed={view === 'daily'} onClick={() => { setView('daily'); setActive(null); }}>Per day</button>
+    <figure className={bare ? 'chart-bare' : 'chart-card'} aria-labelledby={titleId} data-reveal={bare ? undefined : ''}>
+      {bare ? <figcaption id={titleId} className="sr-only">Worldwide total, day by day</figcaption> : null}
+      {bare ? null : (
+        <div className="chart-head">
+          <figcaption id={titleId}>{view === 'total' ? 'Worldwide total, day by day' : 'Collection each day'}</figcaption>
+          <div className="segmented" role="group" aria-label="Show" data-index={view === 'total' ? 0 : 1}>
+            <button type="button" aria-pressed={view === 'total'} onClick={() => { setView('total'); setActive(null); }}>Total</button>
+            <button type="button" aria-pressed={view === 'daily'} onClick={() => { setView('daily'); setActive(null); }}>Per day</button>
+          </div>
         </div>
-      </div>
+      )}
       <div
         ref={box}
         className="chart"

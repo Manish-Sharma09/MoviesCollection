@@ -53,7 +53,7 @@ export function NotFoundPage({ lang }: { lang: Lang }) {
   const c = CONTENT[lang];
   const e = c.errors;
   return (
-    <PageShell lang={lang}>
+    <PageShell lang={lang} ads={false}>
       <div className="page-head error-page">
         <p className="error-code">404</p>
         <Html as="h1" html={e.notFoundH1} />
@@ -73,7 +73,7 @@ export const serverErrorMetadata = (): Metadata =>
 export function ServerErrorPage() {
   const { en, hi } = CONTENT;
   return (
-    <PageShell lang="en">
+    <PageShell lang="en" ads={false}>
       <div className="page-head error-page">
         <p className="error-code">500</p>
         <Html as="h1" html={en.errors.serverH1} />

@@ -4,8 +4,9 @@ import { formatINR, formatUSD, formatCount, formatDate, escapeHtml as esc, joinN
 import type { Money } from '@/lib/types';
 import type { Content } from './types';
 
-const PRIVACY_DATE = '20 November 2026';
-const TERMS_DATE = '19 November 2026';
+const PRIVACY_DATE = '23 November 2026';
+const TERMS_DATE = '23 November 2026';
+const DISCLAIMER_DATE = '23 November 2026';
 // Film links go to the English film pages (they are not translated).
 const film = (f: { slug?: string; title: string }) => (f.slug ? `<a href="/movie/${f.slug}/">${esc(f.title)}</a>` : esc(f.title));
 const inr = (f: { gross: Money }) => formatINR(f.gross.inr);
@@ -28,7 +29,7 @@ const content: Content = {
     switchTitle: 'Read this page in English',
     skip: 'Skip to content',
     navLabel: 'Main',
-    nav: { live: 'Live', liveLong: 'Live box office', top: 'All-time', topLong: 'All-time chart', india: 'Indian films', years: 'Years', yearsLong: 'Box office by year', about: 'About' },
+    nav: { live: 'Live', liveLong: 'Live box office', top: 'All-time', topLong: 'All-time chart', india: 'Indian films', years: 'Years', yearsLong: 'Box office by year', guides: 'Guides', about: 'About' },
     home: 'Home',
     breadcrumb: 'Breadcrumb',
     searchLabel: 'Search films and people',
@@ -47,11 +48,15 @@ const content: Content = {
     contactUs: 'Contact us',
     privacy: 'Privacy policy',
     terms: 'Terms and conditions',
+    disclaimer: 'Disclaimer',
+    guidesTitle: 'Box office guides',
+    guidesNote: 'Plain-English explainers on how box office numbers work, written by our team.',
+    allGuides: 'All guides',
     footerNote: (rate, date) =>
       `Figures come from Wikipedia and Wikidata. Other currencies are converted at ₹${rate} per US$ (rate of ${date}) and are not adjusted for inflation. Live figures are estimates between reports.`,
     copyright: (year, name) => `© ${year} ${name}. Not affiliated with any film studio, distributor or ticketing platform.`,
-    tmdbNote: 'This product uses the TMDB API but is not endorsed or certified by TMDB.',
-    imagesNote: 'Film posters come from Wikipedia and TMDB and are shown to identify the films. Photos of people are from Wikimedia Commons, credited with their photographer and licence.',
+    imagesNote: 'Film posters come from Wikipedia and are shown small, only to identify the films. Photos of people are from Wikimedia Commons, credited with their photographer and licence.',
+    adLabel: 'Advertisement',
 
     boardTitle: 'In cinemas now',
     boardNote: 'Films released in the past 60 days, ranked by reported collection.',
@@ -67,13 +72,39 @@ const content: Content = {
     topWorld: 'Biggest films worldwide',
     topWorldNote: 'Every country and language, not adjusted for inflation.',
     top500: 'View the all-time chart',
+    chartSource: 'Wikipedia’s list of highest-grossing films',
     byYear: "Each year's biggest film",
     everyYear: 'Every year',
     byLanguage: 'Browse by language',
+    explore: 'Explore by year, language and guides',
+    menu: { open: 'Open menu', close: 'Close menu', title: 'Menu', settings: 'Settings' },
+    card: {
+      released: (d) => `Released ${d}`,
+      budget: 'Reported budget',
+      worldwide: 'Worldwide gross',
+      indiaNet: 'India net',
+      indiaGross: 'India gross',
+      overseas: 'Overseas',
+      northAmerica: 'North America',
+      rankToday: (n) => `No. ${n} today`,
+      indian: 'Indian',
+      international: 'International',
+      votes: (n) => `${n} IMDb votes`,
+    },
     faqTitle: 'Frequently asked questions',
     filmsCount: (n) => `${formatCount(n)} films`,
     indianFilms: 'Indian films',
     allFilms: 'All films',
+    adjustedLink: 'Adjusted for inflation',
+    reportedLink: 'Reported figures',
+    reportedThen: 'reported',
+    compareFilms: 'Compare films',
+    compareTitle: 'Compare any two films',
+    compareNote: 'Gross, budget, opening days and today’s money, side by side, for any two films from any year or language.',
+    compareOpen: 'Pick your own',
+    raceTitle: (y) => `${y} box office race by language`,
+    raceNote: 'Worldwide gross of this year’s Indian releases, by each film’s original language. Dubbed versions count towards the original.',
+    raceTop: 'Top',
   },
 
   club,
@@ -95,7 +126,7 @@ const content: Content = {
   }),
 
   worldwideNoteHtml: (count, asOf, link) =>
-    `Worldwide lifetime grosses for the top ${count} films from ${link}, as of ${asOf} IST. Figures are shown in nominal dollars.`,
+    `The top ${count} are from ${link}, last edited ${asOf} IST; the rest are ranked by the worldwide gross on each film’s own Wikipedia article. Not adjusted for inflation.`,
 
   home: (s) => ({
     title: `Box Office Collection Today: Live, Day-wise & Worldwide | ${s.site}`,
@@ -215,12 +246,12 @@ const content: Content = {
       title: 'Live box office collection today: every film in cinemas',
       description: `Live box office collection today for the ${formatCount(n)} films in cinemas: running worldwide totals that update every 5 minutes, today's collection and each film's recent daily trend.`,
       intro: 'Every film in cinemas now, with its worldwide total and what it has collected today. Between reported figures the totals move every 5 minutes.',
-      note: `How it works: each total is the latest figure reported on Wikipedia, plus an estimate for the time since, based on the last three days, the day of the week and show times. A film with no new report in four days shows its last reported figure. New reports are read every three hours, and this page picks them up while it is open. <a href="/about/">More about the numbers</a>.`,
+      note: `How it works: each total is the latest figure reported on Wikipedia, plus an estimate for the time since, based on the last three days, the day of the week and show times. A film with no new report in four days shows its last reported figure. New reports are read every three hours, and this page picks them up while it is open. <a href="/guides/live-box-office-estimate/">How the live estimate works</a>.`,
     }),
     top: () => ({
       h1: 'Biggest films of all time',
       title: 'Highest-grossing films of all time worldwide',
-      description: 'Worldwide lifetime box-office rankings from Box Office Mojo.',
+      description: 'The highest-grossing films of all time at the worldwide box office, ranked from Wikipedia’s list of highest-grossing films and each film’s own figures.',
     }),
     india: (s) => ({
       h1: 'Biggest Indian films',
@@ -228,10 +259,28 @@ const content: Content = {
       description: 'Highest-grossing Indian films of all time by worldwide box office collection: Bollywood, Telugu, Tamil, Malayalam, Kannada and more.',
       intro: `The highest-grossing Indian films worldwide, in every language. ${formatCount(s.indian)} films tracked.`,
     }),
+    topAdjusted: (s, y) => ({
+      h1: 'Biggest films of all time, adjusted for inflation',
+      title: `Highest-grossing films of all time adjusted for inflation (${y} prices)`,
+      description: `The highest-grossing films of all time adjusted for inflation: each film’s worldwide gross in ${y} prices, worked out from consumer prices since its release year.`,
+      intro: `Each film’s worldwide gross raised to ${y} prices with the consumer price index of the country whose currency it was reported in (World Bank figures, from 1960), then converted at ₹${s.rate} per US$. Totals that include later re-releases are raised from the first release year, so they come out high. Films from before 1960 are not included. Estimates, not official figures: <a href="/guides/inflation-and-all-time-records/">why adjust for inflation</a>.`,
+    }),
+    indiaAdjusted: (s, y) => ({
+      h1: 'Biggest Indian films, adjusted for inflation',
+      title: `Highest-grossing Indian films adjusted for inflation (${y} prices)`,
+      description: `Indian films ranked by worldwide box office collection in ${y} prices: old classics and new hits compared fairly, using India’s consumer price index.`,
+      intro: `Each film’s worldwide gross raised to ${y} prices with India’s consumer price index (World Bank). Older classics earned their money at a fraction of today’s ticket prices; this list shows what those totals are worth now. Totals that include re-releases or ticket sales abroad in other currencies are raised from the first release year, so treat them as rough. Films from before 1960 are not included. <a href="/guides/inflation-and-all-time-records/">More on inflation and records</a>.`,
+    }),
     club: (meta, n) => ({
       title: `${meta.label}: all ${formatCount(n)} films`,
       description: `${meta.note} Full list of ${formatCount(n)} films ranked by box office collection.`,
       intro: `${meta.note} ${formatCount(n)} films so far.`,
+    }),
+    explore: (s) => ({
+      h1: 'Explore box office collection',
+      title: 'Explore box office by year, language and guides',
+      description: `Browse ${formatCount(s.films)} films by year and language, read plain-English box office guides, and find answers to common questions about box office collection.`,
+      intro: 'Each year\'s biggest film, every language we track, our box office guides and answers to the questions we get asked most.',
     }),
     years: () => ({
       h1: 'Box office by year',
@@ -261,8 +310,21 @@ const content: Content = {
 <p>Box office numbers are scattered across trade tweets, news articles and forums, and they rarely agree. ${esc(s.site)} puts the figures for ${formatCount(s.films)} films in one place, ranks them the same way, and keeps them up to date without anyone having to type them in. It is made by film fans, for film fans.</p>
 <p>The site is not affiliated with any film studio, producer, distributor, ticketing platform or trade publication, and nobody pays to have a film listed or ranked.</p>
 
+<h2>Who runs it</h2>
+<p>${s.owner ? `${esc(s.site)} is an independent project run by ${esc(s.owner)} from India.` : `${esc(s.site)} is an independent project run from India.`} ${s.ads ? 'It is paid for by the ads shown on its pages, which is why it can stay free with no sign-up or paywall.' : 'It is free to use, with no sign-up or paywall.'} Advertisers have no say in which films are listed or how they are ranked.</p>
+<p>Besides the charts, we write <a href="/guides/">guides</a> that explain how the box office works: what gross, net and share mean, why sites disagree, how to read a day-wise chart, and how our live estimate is calculated.</p>
+
 <h2>Where the figures come from</h2>
 <p>Every figure is read automatically from two free, public sources: the infobox on each film's English Wikipedia article, and Wikidata. Wikipedia editors follow trade reports and producers' announcements, so a film's number changes as new reports come in. When the two sources disagree, the site uses the one with the clearer worldwide figure. Every film page links to its sources so you can check.</p>
+
+<h2>How the figures are checked</h2>
+<p>Open sources can be vandalised, so every update runs a few checks before a number reaches the site:</p>
+<ul>
+<li>A figure that would put an Indian film above ₹500 crore, or any film above US$1 billion, is accepted only if the film also appears on Wikipedia’s lists of highest-grossing films, which are closely watched. Films released in the last four months are exempt, because those lists take time to catch up with new hits.</li>
+<li>Day-wise totals use the figure that stood at the end of each day. A figure higher than the film’s current total is ignored (it was almost always vandalism that was later undone), and a total never goes down from one day to the next.</li>
+<li>The all-time chart takes its top places from Wikipedia’s list of highest-grossing films rather than from individual articles, and leaves out a film whose own article claims more than the list allows.</li>
+</ul>
+<p>None of this makes the figures official. They are the best publicly reported numbers, and they are labelled as such. The <a href="/disclaimer/">disclaimer</a> explains the limits.</p>
 
 <h2>What “worldwide gross” means</h2>
 <p>It is the total ticket sales across all countries, before the cinema's share, as reported. Indian films are shown in rupees and other films in US dollars by default; use the ₹ and $ buttons at the top to switch.</p>
@@ -297,7 +359,7 @@ ${s.email ? `<h2>Write to us</h2>
     'privacy-policy': (s) => ({
       h1: 'Privacy policy',
       title: 'Privacy policy',
-      description: `How ${s.site} handles your information: no accounts, no forms, and what analytics and hosting providers see.`,
+      description: `How ${s.site} handles your information: no accounts, no forms, and what ${s.ads ? 'advertising, ' : ''}analytics and hosting providers see.`,
       lead: `Last updated ${PRIVACY_DATE}.`,
       body: `<p>${esc(s.site)} (“we”, “the site”) is a free website about box office collections. This policy explains what information is handled when you visit ${esc(s.url)}.</p>
 
@@ -305,6 +367,7 @@ ${s.email ? `<h2>Write to us</h2>
 <ul>
 <li>There are no accounts, sign-ups or forms, so we never ask for your name, phone number or email.</li>
 <li>Your ₹/$ and light/dark choices are saved in your own browser and never sent to us.</li>
+${s.ads ? '<li>We show ads from Google AdSense, which keep the site free. Google and its partners use cookies to choose which ads to show.</li>' : ''}
 ${s.analytics ? '<li>We use Google Analytics to count visits and see which pages are popular.</li>' : ''}
 <li>We do not sell or rent any information to anyone.</li>
 </ul>
@@ -315,7 +378,14 @@ ${s.analytics ? '<li>We use Google Analytics to count visits and see which pages
 ${s.analytics ? `<h2>Analytics</h2>
 <p>We use Google Analytics, provided by Google LLC, to understand how many people visit and which pages they read. Google Analytics uses cookies and collects information such as the pages you view, how long you stay, the type of device and browser, and your approximate location. It does not give us your name or contact details. Google processes this information under its own <a href="https://policies.google.com/privacy" rel="noopener">privacy policy</a>. You can opt out with the <a href="https://tools.google.com/dlpage/gaoptout" rel="noopener">Google Analytics opt-out browser add-on</a>, or by blocking cookies in your browser.</p>
 ` : ''}
-<h2>Hosting and fonts</h2>
+${s.ads ? `<h2>Advertising</h2>
+<p>The site shows ads served by Google AdSense, a service of Google LLC. Third-party vendors, including Google, use cookies to serve ads based on your previous visits to this site and other websites. Google’s use of advertising cookies enables it and its partners to serve ads to you based on your visits to this site and/or other sites on the internet.</p>
+<p>You can opt out of personalised advertising in Google’s <a href="https://adssettings.google.com/" rel="noopener">Ads Settings</a>, and opt out of some other vendors’ use of cookies for personalised advertising at <a href="https://www.aboutads.info/choices/" rel="noopener">aboutads.info</a>. You will still see ads, but they will not be based on your browsing. Google explains <a href="https://policies.google.com/technologies/partner-sites" rel="noopener">how it uses information from sites that use its services</a>.</p>
+
+<h2>Your choices and consent</h2>
+<p>Visitors from the European Economic Area, the United Kingdom and Switzerland are asked for consent, through a message provided by Google, before cookies are used for personalised ads or analytics. Until you agree, ads are not personalised and analytics does not set cookies. You can change your choice at any time with the privacy and cookie settings link that the message adds to the page. You can also block or delete cookies in your browser’s settings.</p>
+
+` : ''}<h2>Hosting and fonts</h2>
 <p>The site is hosted on Cloudflare, which processes technical information such as your IP address to deliver pages and protect the site from attacks. Text is shown in your device's own fonts, so your browser does not contact a font provider. Cloudflare handles this information under its own privacy policy.</p>
 
 <h2>Links to other websites</h2>
@@ -345,8 +415,14 @@ ${s.analytics ? `<h2>Analytics</h2>
 <p>Figures are collected automatically from public sources, mainly Wikipedia and Wikidata, which can contain mistakes or change at any time. Live figures are estimates calculated by the site between reported totals; they are not official numbers. We do our best to keep everything correct and current, but we make no promise that any figure is complete, accurate or up to date. Do not rely on the site for business, investment or legal decisions.</p>
 
 <h2>Sources and licences</h2>
-<p>Box office figures are facts reported by trade sources. Data from Wikidata is available under CC0. Short quotations of figures from Wikipedia are used with attribution under the Creative Commons Attribution-ShareAlike licence, and each film page links to its source article.</p>
+<p>Box office figures are facts reported by trade sources. Data from Wikidata is available under CC0. Figures from Wikipedia, including the all-time chart taken from its List of highest-grossing films, are used with attribution under the Creative Commons Attribution-ShareAlike licence, and each page links to its source.</p>
 
+<h2>Images</h2>
+<p>Film posters are shown at a small size only to identify the films they belong to, as Wikipedia does. Copyright in each poster stays with its owner. If you hold the rights to an image and want it removed, write to us through the <a href="/contact/">contact page</a> and we will take it down promptly. Photos of people come from Wikimedia Commons under free licences and are credited with their author and licence.</p>
+${s.ads ? `
+<h2>Advertising</h2>
+<p>The site shows ads from third parties, including Google. An ad is not an endorsement, and we are not responsible for advertisers’ products, services or websites. The <a href="/privacy-policy/">privacy policy</a> explains how ads use cookies.</p>
+` : ''}
 <h2>Trademarks</h2>
 <p>Film titles, names and trademarks belong to their owners and are used only to identify the films. The site is not affiliated with or endorsed by any studio, producer, distributor or ticketing platform.</p>
 
@@ -367,6 +443,39 @@ ${s.analytics ? `<h2>Analytics</h2>
 
 <h2>Contact</h2>
 <p>${s.email ? `Questions about these terms can be sent to <a href="mailto:${esc(s.email)}">${esc(s.email)}</a>.` : 'Questions about these terms can be sent through the <a href="/contact/">contact page</a>.'}</p>`,
+    }),
+
+    disclaimer: (s) => ({
+      h1: 'Disclaimer',
+      title: 'Disclaimer',
+      description: `What ${s.site}'s box office figures and live estimates can and cannot be used for.`,
+      lead: `Last updated ${DISCLAIMER_DATE}.`,
+      body: `<h2>For general information only</h2>
+<p>${esc(s.site)} publishes box office figures, rankings and explanations for general information and entertainment. Nothing on the site is professional, financial, investment or legal advice.</p>
+
+<h2>Figures are reported, not official</h2>
+<p>Box office numbers are collected automatically from public sources, mainly Wikipedia and Wikidata, which in turn quote trade analysts, producers and box office trackers. Producers, distributors and trade sources often publish different numbers for the same film, and early figures are usually revised. We check figures before they are published (see <a href="/about/">how the figures are checked</a>), but we cannot guarantee that any number is complete, accurate or current.</p>
+
+<h2>Live figures are estimates</h2>
+<p>The live totals on the site are estimates that we calculate between two reported figures. They are always marked with a red dot, and they are replaced by the reported number as soon as a new one is published. They are not ticket sales data and must not be quoted as actual collections. The <a href="/guides/live-box-office-estimate/">guide to our live estimate</a> explains exactly how it is calculated.</p>
+
+<h2>Conversions and comparisons</h2>
+<p>Amounts in other currencies are converted at a single recent exchange rate (₹${s.rate} per US$) and are not adjusted for inflation. Rankings compare films released decades apart, with very different ticket prices and numbers of screens, so they show what films earned, not how popular they were in their day.</p>
+
+<h2>No affiliation</h2>
+<p>${esc(s.site)} is independent. It is not affiliated with, endorsed by or sponsored by any film studio, producer, distributor, cinema chain, ticketing platform or trade publication. Film titles, names, posters and trademarks belong to their owners and are used only to identify the films.</p>
+${s.ads ? `
+<h2>Advertising</h2>
+<p>Ads on the site are chosen and served by Google AdSense. We do not choose individual ads, and an ad is not a recommendation from us. Advertisers have no influence over figures, rankings or what we write.</p>
+` : ''}
+<h2>External links</h2>
+<p>Pages link to Wikipedia, Wikidata, IMDb and other websites. We do not control those sites and are not responsible for their content.</p>
+
+<h2>Errors and corrections</h2>
+<p>If you find a mistake, the fastest fix is to correct the film’s Wikipedia article with a reliable source; the site picks it up at the next update. For anything else, <a href="/contact/">contact us</a>${s.email ? ` at <a href="mailto:${esc(s.email)}">${esc(s.email)}</a>` : ''}.</p>
+
+<h2>Liability</h2>
+<p>To the extent the law allows, ${esc(s.site)} accepts no liability for any loss or damage arising from the use of, or reliance on, information on the site. The <a href="/terms/">terms and conditions</a> apply to every use of the site.</p>`,
     }),
   },
 

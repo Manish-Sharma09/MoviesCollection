@@ -7,6 +7,7 @@ import {
   byYear, clubBySlug, CLUBS, indian, isIndian, languageBySlug, languages, nativeOf, STATS, worldwide, yearsSorted,
 } from '@/lib/data';
 import { alternatesFor, CONTENT, localePath, type Lang } from '@/lib/i18n';
+import { adjustedIndian, adjustedWorld, CPI_YEAR, type AdjustedItem } from '@/lib/inflation';
 import { crumbsLd, itemListLd, pageMetadata, type Crumb } from '@/lib/seo';
 import { SITE } from '@/lib/site';
 import type { ClubSlug } from '@/lib/types';
@@ -31,7 +32,8 @@ export function TopPage({ lang }: { lang: Lang }) {
           '@type': 'ListItem', position: f.rank, name: f.title, ...(f.slug && { url: `${SITE.url}/movie/${f.slug}/` }),
         })),
       }} />
-      <ListBody lang={lang} h1={p.h1} introHtml={worldwideNoteHtml(lang)} list={worldwide} native="USD" exact />
+      <ListBody lang={lang} h1={p.h1} introHtml={worldwideNoteHtml(lang)} list={worldwide} native="USD" exact
+        headLink={CPI_YEAR ? { href: localePath(lang, '/top/adjusted/'), label: CONTENT[lang].ui.adjustedLink } : null} />
     </PageShell>
   );
 }
@@ -45,7 +47,44 @@ export function IndiaPage({ lang }: { lang: Lang }) {
   return (
     <PageShell lang={lang} nav="/india/" alternates={alternatesFor('/india/')}>
       <JsonLd data={itemListLd(indian, p.h1)} />
-      <ListBody lang={lang} h1={p.h1} introHtml={p.intro} list={indian} native="INR" />
+      <ListBody lang={lang} h1={p.h1} introHtml={p.intro} list={indian} native="INR"
+        headLink={CPI_YEAR ? { href: localePath(lang, '/india/adjusted/'), label: CONTENT[lang].ui.adjustedLink } : null} />
+    </PageShell>
+  );
+}
+
+// ---------- /top/adjusted/ and /india/adjusted/: the same charts in today's money ----------
+
+type AdjustedKind = 'top' | 'india';
+const ADJUSTED = {
+  top: { path: '/top/adjusted/', base: '/top/', list: () => adjustedWorld, native: 'USD', nav: '/top/' },
+  india: { path: '/india/adjusted/', base: '/india/', list: () => adjustedIndian, native: 'INR', nav: '/india/' },
+} as const;
+
+function adjustedContent(lang: Lang, kind: AdjustedKind) {
+  if (!CPI_YEAR) throw new Error('No CPI data: run node scripts/fetch-cpi.mjs');
+  const c = CONTENT[lang];
+  const k = ADJUSTED[kind];
+  const p = (kind === 'top' ? c.pages.topAdjusted : c.pages.indiaAdjusted)(STATS, CPI_YEAR);
+  const crumbs: Crumb[] = [
+    [c.ui.home, localePath(lang, '/')], [kind === 'top' ? c.ui.nav.topLong : c.ui.nav.india, localePath(lang, k.base)], [c.ui.adjustedLink, localePath(lang, k.path)],
+  ];
+  return { c, k, p, crumbs };
+}
+
+export const adjustedMetadata = (lang: Lang, kind: AdjustedKind) => meta(lang, ADJUSTED[kind].path, adjustedContent(lang, kind).p);
+
+export function AdjustedPage({ lang, kind }: { lang: Lang; kind: AdjustedKind }) {
+  const { c, k, p, crumbs } = adjustedContent(lang, kind);
+  const list = k.list();
+  const sub = (f: AdjustedItem) => (
+    <>{f.year} · {c.ui.reportedThen} <Money {...f.reported} native={k.native} /></>
+  );
+  return (
+    <PageShell lang={lang} nav={k.nav} alternates={alternatesFor(k.path)}>
+      <JsonLd data={[itemListLd(list, p.h1), crumbsLd(crumbs)]} />
+      <ListBody lang={lang} h1={p.h1} introHtml={p.intro} list={list} native={k.native} crumbs={crumbs}
+        headLink={{ href: localePath(lang, k.base), label: c.ui.reportedLink }} sub={(f) => sub(f as AdjustedItem)} />
     </PageShell>
   );
 }

@@ -194,6 +194,15 @@ async function main() {
     return Boolean(film.date) && !film.date.endsWith('-01-01') && age >= 0 && age < 120 * DAY;
   };
   const rejected = [];
+  // IMDb user ratings (fetch-ratings.mjs). Optional: without the file, films simply have no rating.
+  // Only with IMDB_RATINGS=1 (README "IMDb ratings"): IMDb's free dataset is for non-commercial use.
+  const imdbRatings = process.env.IMDB_RATINGS === '1' ? (await read('ratings.json').catch(() => null))?.ratings ?? {} : {};
+  // A handful of votes is noise, so a rating is only shown once enough people have voted.
+  const MIN_VOTES = 100;
+  const ratingOf = (imdb) => {
+    const r = imdb && imdbRatings[imdb];
+    return r && r.votes >= MIN_VOTES ? { value: r.rating, votes: r.votes } : null;
+  };
 
   const films = [];
   const slugs = new Set();
@@ -232,7 +241,8 @@ async function main() {
     // Wikipedia's infobox gross and Wikidata's "worldwide" statements are worldwide totals;
     // a Wikidata figure without a place could be anything, so it is labelled more loosely.
     gross.scope = gross === wdWorld || gross.source === 'wikipedia' ? 'worldwide' : 'unspecified';
-    gross.source === 'wikipedia' ? fromWp++ : fromWd++;
+    if (gross.source === 'wikipedia') fromWp++;
+    else fromWd++;
 
     const year = yearFrom(film);
     let slug = slugify(`${title}${year ? `-${year}` : ''}`) || film.qid.toLowerCase();
@@ -256,7 +266,7 @@ async function main() {
       starring: page?.starring || [],
       runtime: film.runtime,
       imdb: film.imdb,
-      tmdb: film.tmdb,
+      rating: ratingOf(film.imdb),
       enwiki: film.enwiki,
       gross,
       // A single country's take can't be more than the worldwide total; if it is, one of the

@@ -29,7 +29,7 @@ export interface Content {
     switchTitle: string;
     skip: string;
     navLabel: string;
-    nav: { live: string; liveLong: string; top: string; topLong: string; india: string; years: string; yearsLong: string; about: string };
+    nav: { live: string; liveLong: string; top: string; topLong: string; india: string; years: string; yearsLong: string; guides: string; about: string };
     home: string;
     breadcrumb: string;
     searchLabel: string;
@@ -48,9 +48,15 @@ export interface Content {
     contactUs: string;
     privacy: string;
     terms: string;
+    disclaimer: string;
+    /** Home page section linking the guides (which are written in English). */
+    guidesTitle: string;
+    guidesNote: string;
+    allGuides: string;
     footerNote: Fn<[rate: number, date: string]>;
-    tmdbNote: string;
     imagesNote: string;
+    /** Small label above an ad slot. */
+    adLabel: string;
     copyright: Fn<[year: number, name: string]>;
     boardTitle: string;
     boardNote: string;
@@ -66,13 +72,47 @@ export interface Content {
     topWorld: string;
     topWorldNote: string;
     top500: string;
+    /** Link text for Wikipedia's "List of highest-grossing films", in the chart's source line. */
+    chartSource: string;
     byYear: string;
     everyYear: string;
     byLanguage: string;
+    /** Film detail cards on the home page's recent-releases board. */
+    card: {
+      released: Fn<[date: string]>;
+      budget: string;
+      worldwide: string;
+      indiaNet: string;
+      indiaGross: string;
+      overseas: string;
+      northAmerica: string;
+      rankToday: Fn<[n: number]>;
+      indian: string;
+      international: string;
+      votes: Fn<[n: string]>;
+    };
+    /** Phone and tablet menu (the slide-in panel). */
+    menu: { open: string; close: string; title: string; settings: string };
+    /** Link to /explore/ from the home page and footer. */
+    explore: string;
     faqTitle: string;
     filmsCount: Fn<[n: number]>;
     indianFilms: string;
     allFilms: string;
+    /** Link from the reported charts to the inflation-adjusted ones, and back. */
+    adjustedLink: string;
+    reportedLink: string;
+    /** Before a film's reported gross on the adjusted charts: "1975 · reported ₹35 cr". */
+    reportedThen: string;
+    /** The compare tool (English only) in the footer and on the home page. */
+    compareFilms: string;
+    compareTitle: string;
+    compareNote: string;
+    compareOpen: string;
+    /** Home page: this year's Indian releases by original language. */
+    raceTitle: Fn<[year: number]>;
+    raceNote: string;
+    raceTop: string;
   };
 
   club: Record<ClubSlug, { label: string; note: string }>;
@@ -95,7 +135,7 @@ export interface Content {
     chart: string;
     filmsTracked: string;
   }>;
-  /** Source line under the worldwide chart. `link` is the Box Office Mojo link (HTML). */
+  /** Source line under the worldwide chart. `count`: places taken from Wikipedia's list; `link`: that list (HTML). */
   worldwideNoteHtml: Fn<[count: string, asOf: string, link: string]>;
 
   home: Fn<[s: Stats], { title: string; description: string; h1: string; intro: string }>;
@@ -106,14 +146,20 @@ export interface Content {
     live: Fn<[s: Stats, n: number], ListPage & { note: string }>;
     top: Fn<[s: Stats], Omit<ListPage, 'intro'>>;
     india: Fn<[s: Stats], ListPage>;
+    /** The charts in today's money (src/lib/inflation.ts); `year` is the price year. */
+    topAdjusted: Fn<[s: Stats, year: number], ListPage>;
+    indiaAdjusted: Fn<[s: Stats, year: number], ListPage>;
     club: Fn<[meta: { label: string; note: string }, n: number], Omit<ListPage, 'h1'>>;
     years: Fn<[s: Stats], ListPage>;
+    /** /explore/: the browse-by-year/language, guides, article and FAQ sections moved off the home page. */
+    explore: Fn<[s: Stats], ListPage>;
     year: Fn<[year: number, n: number, indian: number], ListPage>;
     language: Fn<[name: string, n: number], ListPage>;
     about: Fn<[s: Stats], ProsePage>;
     contact: Fn<[s: Stats], ProsePage>;
     'privacy-policy': Fn<[s: Stats], ProsePage>;
     terms: Fn<[s: Stats], ProsePage>;
+    disclaimer: Fn<[s: Stats], ProsePage>;
   };
 
   errors: {
@@ -127,4 +173,4 @@ export interface Content {
   };
 }
 
-export type ProseKey = 'about' | 'contact' | 'privacy-policy' | 'terms';
+export type ProseKey = 'about' | 'contact' | 'privacy-policy' | 'terms' | 'disclaimer';

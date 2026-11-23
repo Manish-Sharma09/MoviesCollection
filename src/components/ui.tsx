@@ -1,10 +1,13 @@
 // Server components shared by the pages. Interactive pieces live in ./client.
+import Image from 'next/image';
 import { Fragment, type HTMLAttributes, type ReactNode } from 'react';
-import { artUrl, personFor, type ArtSize, type Photo } from '@/lib/data';
+import { personFor, posterUrl, type Photo, type PosterWidth } from '@/lib/data';
 import type { Currency } from '@/lib/format';
 import { CONTENT, type Lang } from '@/lib/i18n';
 import type { Crumb } from '@/lib/seo';
+import { ADSENSE_CLIENT, ADSENSE_SLOT } from '@/lib/site';
 import type { RankItem } from '@/lib/types';
+import { AdSlot } from './client/AdSlot';
 import { Money, SafeImg } from './client/basics';
 import { RankValue } from './client/Live';
 
@@ -14,6 +17,11 @@ export function Html({ as: Tag = 'div', html, ...rest }: {
   html: string;
 } & Omit<HTMLAttributes<HTMLElement>, 'children' | 'dangerouslySetInnerHTML'>) {
   return <Tag {...rest} dangerouslySetInnerHTML={{ __html: html }} />;
+}
+
+/** An ad slot, when an AdSense ad unit is set up (ADSENSE_CLIENT and ADSENSE_SLOT); otherwise nothing. */
+export function Ad({ lang }: { lang: Lang }) {
+  return ADSENSE_CLIENT && ADSENSE_SLOT ? <AdSlot client={ADSENSE_CLIENT} slot={ADSENSE_SLOT} label={CONTENT[lang].ui.adLabel} /> : null;
 }
 
 export function JsonLd({ data }: { data: object | object[] }) {
@@ -26,35 +34,14 @@ export function JsonLd({ data }: { data: object | object[] }) {
   );
 }
 
-const TICKET_PATH = 'M8 4h48a4 4 0 0 1 4 4v7a5 5 0 0 0 0 10v7a4 4 0 0 1-4 4H8a4 4 0 0 1-4-4v-7a5 5 0 0 0 0-10V8a4 4 0 0 1 4-4z';
-const BARS_PATH = 'M14 24h6v5h-6zM23 17h6v12h-6zM32 10h6v19h-6z';
-
-/**
- * The app icon: a white cinema ticket with a rising bar chart cut out of it, on a warm gradient tile.
- * Same drawing as public/favicon.svg. `id` keeps the SVG ids unique when the icon appears twice on a page.
- */
-export function AppIcon({ id }: { id: string }) {
-  return (
-    <svg className="app-icon" viewBox="0 0 64 64" aria-hidden="true">
-      <defs>
-        <linearGradient id={`icon-bg-${id}`} x1="0" y1="0" x2="0" y2="1">
-          <stop offset="0" stopColor="#ffbf47" /><stop offset="1" stopColor="#ff7a1a" />
-        </linearGradient>
-        <mask id={`icon-cut-${id}`}>
-          <rect width="64" height="40" fill="#fff" />
-          <path fill="#000" d={BARS_PATH} />
-          <path stroke="#000" strokeWidth="2.4" strokeDasharray="3 3" fill="none" d="M48 9v22" />
-        </mask>
-      </defs>
-      <rect width="64" height="64" rx="14.5" fill={`url(#icon-bg-${id})`} />
-      <path transform="translate(6.4 16) scale(0.8)" fill="#fff" mask={`url(#icon-cut-${id})`} d={TICKET_PATH} />
-    </svg>
-  );
+/** The icon's adjacent site name provides the accessible link text. */
+export function AppIcon() {
+  return <Image className="app-icon" src="/favicon.svg" width={30} height={30} alt="" unoptimized />;
 }
 
 /** Poster with the title's first letter behind it, shown when there is no artwork or it fails to load. */
-export function Poster({ film, eager = false, size = 'w342' }: { film: { title: string; tmdb?: string | null; id?: string }; eager?: boolean; size?: ArtSize }) {
-  const url = artUrl(film, 'poster', size);
+export function Poster({ film, eager = false, size = 330 }: { film: { title: string; id?: string; slug?: string }; eager?: boolean; size?: PosterWidth }) {
+  const url = posterUrl(film, size);
   return (
     <span className="poster" aria-hidden="true">
       <span className="poster-letter">{film.title.trim().slice(0, 1)}</span>
@@ -80,7 +67,7 @@ export function Avatar({ name, photo, size = 'md', eager = false }: { name: stri
 }
 
 /** "Photo: Jane Doe, CC BY-SA 4.0, via Wikimedia Commons", with links, for a Commons photo. */
-export function PhotoCredit({ credit }: { credit: NonNullable<Photo['credit']> }) {
+export function PhotoCredit({ credit }: { credit: Photo['credit'] }) {
   return (
     <>
       {credit.artist ? <>{credit.artist}, </> : null}
@@ -139,7 +126,7 @@ export function RankList({ list, native = 'USD', highlight = null, rankOf = null
   const top = max || list[0]?.gross.usd || 1;
   // Posters on every row (they load lazily, as they scroll into view); if the list has any artwork,
   // rows without it get a letter tile so the titles line up.
-  const withPosters = list.slice(0, 50).some((f) => artUrl(f, 'poster', 'w92'));
+  const withPosters = list.slice(0, 50).some((f) => posterUrl(f, 120));
   return (
     <ol className="ranks">
       {list.map((f, i) => {
@@ -150,7 +137,7 @@ export function RankList({ list, native = 'USD', highlight = null, rankOf = null
           <li key={f.id || `${f.title}-${f.year}`} className={here ? 'here' : undefined} aria-current={here ? 'true' : undefined}>
             <span className="n">{rankOf ? rankOf(f) : i + 1}</span>
             <span className="t">
-              {withPosters ? <Poster film={f} size="w92" /> : null}
+              {withPosters ? <Poster film={f} size={120} /> : null}
               <span><FilmLink film={f} /><small>{sub(f)}</small></span>
             </span>
             {live && f.live
@@ -181,14 +168,20 @@ export function FaqBlock({ items, heading }: { items: { q: string; a: string }[]
 }
 
 /** Heading, intro and a ranked list: the all-time, Indian, club and language pages. */
-export function ListBody({ lang, h1, introHtml, list, native, limit = 500, crumbs = null, exact = false }: {
+export function ListBody({ lang, h1, introHtml, list, native, limit = 500, crumbs = null, exact = false, headLink = null, sub }: {
   lang: Lang; h1: string; introHtml: string; list: RankItem[]; native: Currency; limit?: number; crumbs?: Crumb[] | null; exact?: boolean;
+  /** One link under the intro, to the same chart another way (reported ↔ adjusted for inflation). */
+  headLink?: { href: string; label: string } | null;
+  sub?: RankListOptions['sub'];
 }) {
   return (
     <>
       {crumbs ? <Crumbs lang={lang} items={crumbs} /> : null}
-      <div className="page-head"><h1>{h1}</h1><Html as="p" html={introHtml} /></div>
-      <section className="list-section"><RankList list={list.slice(0, limit)} native={native} exact={exact} /></section>
+      <div className="page-head">
+        <h1>{h1}</h1><Html as="p" html={introHtml} />
+        {headLink ? <a className="see-all head-link" href={headLink.href}>{headLink.label} <span aria-hidden="true">›</span></a> : null}
+      </div>
+      <section className="list-section"><RankList list={list.slice(0, limit)} native={native} exact={exact} {...(sub && { sub })} /></section>
     </>
   );
 }

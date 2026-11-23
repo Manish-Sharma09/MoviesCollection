@@ -68,6 +68,23 @@ export function MotionMain({ children }: { children: ReactNode }) {
           }),
         });
       }
+
+      // 3. Day-by-day bars on film pages (open weeks only) grow to their length (data-w) the same way.
+      const dayRows = q('.week[open] .day-row') as HTMLElement[];
+      const dayBar = (row: Element) => row.querySelector<HTMLElement>('.day-bar i[data-w]');
+      const dayBars = dayRows.map(dayBar).filter((b): b is HTMLElement => Boolean(b));
+      if (dayBars.length) {
+        gsap.set(dayBars, { scaleX: 0, transformOrigin: 'left center' });
+        ScrollTrigger.batch(dayRows, {
+          start: 'top 95%',
+          once: true,
+          interval: 0.1,
+          onEnter: safe((batch: Element[]) => {
+            const bars = batch.map(dayBar).filter((b): b is HTMLElement => Boolean(b));
+            gsap.to(bars, { scaleX: (_i: number, el: HTMLElement) => Number(el.dataset.w), duration: 1, ease: EASE, stagger: 0.04 });
+          }),
+        });
+      }
     });
     // Starting states are set (or animations are off): the stylesheet can stop hiding things.
     motionReady();

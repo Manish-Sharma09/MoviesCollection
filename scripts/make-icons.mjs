@@ -12,11 +12,7 @@ const SITE_NAME = process.env.SITE_NAME || 'Collection Board';
 const OUT = fileURLToPath(new URL('../public/', import.meta.url));
 const CHROME = process.env.CHROME || '/Applications/Google Chrome.app/Contents/MacOS/Google Chrome';
 
-const TICKET = 'M8 4h48a4 4 0 0 1 4 4v7a5 5 0 0 0 0 10v7a4 4 0 0 1-4 4H8a4 4 0 0 1-4-4v-7a5 5 0 0 0 0-10V8a4 4 0 0 1 4-4z';
-const BARS = 'M14 24h6v5h-6zM23 17h6v12h-6zM32 10h6v19h-6z';
-const GRADIENT = 'linear-gradient(180deg, #ffbf47, #ff7a1a)';
-// White ticket with the bar chart and perforation cut out (same drawing as public/favicon.svg).
-const ticket = `<svg viewBox="0 0 64 40" xmlns="http://www.w3.org/2000/svg"><defs><mask id="c"><rect width="64" height="40" fill="#fff"/><path d="${BARS}"/><path stroke="#000" stroke-width="2.4" stroke-dasharray="3 3" fill="none" d="M48 9v22"/></mask></defs><path fill="#fff" mask="url(#c)" d="${TICKET}"/></svg>`;
+const logo = await readFile(join(OUT, 'favicon.svg'), 'utf8');
 const esc = (s) => s.replace(/&/g, '&amp;').replace(/</g, '&lt;');
 
 // The system font, like the site (SF Pro when rendered on a Mac).
@@ -24,14 +20,13 @@ const page = (w, h, body) => `<!doctype html><html><head><meta charset="utf-8">
 <style>html,body{margin:0;width:${w}px;height:${h}px;overflow:hidden;background:#000;font-family:system-ui,-apple-system,'Segoe UI',sans-serif;-webkit-font-smoothing:antialiased}</style></head><body>${body}</body></html>`;
 
 // Square app icon, full bleed (phones round the corners themselves). The ticket sits inside the maskable safe zone.
-const icon = page(512, 512, `<div style="width:512px;height:512px;display:grid;place-items:center;background:${GRADIENT}">
-<div style="width:300px;filter:drop-shadow(0 6px 14px rgba(150,60,0,.25))">${ticket}</div></div>`);
+const icon = page(512, 512, `<style>svg rect { rx: 0; }</style>${logo}`);
 
 // 1200×630 share image: the site's hero — black, the app icon, a large tight headline with the warm gradient.
 const og = page(1200, 630, `<div style="width:1200px;height:630px;box-sizing:border-box;padding:72px 80px;display:flex;flex-direction:column;justify-content:space-between;color:#f5f5f7;
 background:radial-gradient(120% 90% at 100% 0%, #2a1a08 0%, rgba(0,0,0,0) 55%), #000">
 <div style="display:flex;align-items:center;gap:20px">
-<div style="width:84px;height:84px;border-radius:19px;background:${GRADIENT};display:grid;place-items:center;box-shadow:0 10px 30px rgba(255,122,26,.25)"><div style="width:58px">${ticket}</div></div>
+<div style="width:84px;height:84px;flex:none">${logo}</div>
 <div style="font-weight:600;font-size:40px;letter-spacing:-0.02em">${esc(SITE_NAME)}</div></div>
 <div style="font-weight:700;font-size:112px;line-height:1.02;letter-spacing:-0.04em">Box office<br><span style="background:linear-gradient(90deg,#ffd27a,#ffab40 45%,#ff7f50);-webkit-background-clip:text;color:transparent">collections</span></div>
 <div style="font-size:30px;line-height:1.35;letter-spacing:-0.01em;color:rgba(245,245,247,.7)">Live totals, day-wise figures and the crore clubs. Free, updated daily.</div>
@@ -42,7 +37,7 @@ const shot = async (html, w, h, out) => {
   const file = join(dir, `${w}x${h}.html`);
   await writeFile(file, html);
   execFileSync(CHROME, [
-    '--headless=new', '--disable-gpu', '--hide-scrollbars', '--force-device-scale-factor=1',
+    '--headless=new', `--user-data-dir=${join(dir, 'chrome-profile')}`, '--disable-gpu', '--hide-scrollbars', '--force-device-scale-factor=1',
     `--window-size=${w},${h}`, '--virtual-time-budget=8000', `--screenshot=${out}`, `file://${file}`,
   ], { stdio: 'ignore' });
   const size = execFileSync('sips', ['-g', 'pixelWidth', '-g', 'pixelHeight', out]).toString();

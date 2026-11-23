@@ -36,12 +36,12 @@ jobs:
             data/raw/wikipedia.json
             data/raw/history.json
             data/raw/rates.json
+            data/raw/cpi.json
             data/raw/lists.json
-            data/raw/artwork.json
-            data/raw/tmdb-people.json
             data/raw/people.json
             data/raw/posters.json
             data/raw/worldwide-lifetime.json
+            data/raw/ratings.json
           key: raw-data-${{ github.run_id }}
           restore-keys: raw-data-
 
@@ -65,22 +65,20 @@ jobs:
         env:
           SCHEDULE: ${{ github.event.schedule }}
           CONTACT_UA: ${{ vars.CONTACT_UA }}
+          IMDB_RATINGS: ${{ vars.IMDB_RATINGS }}
 
-      - name: Refresh worldwide lifetime chart
-        run: npm run fetch:worldwide
-        env:
-          BOX_OFFICE_CHART_URL: ${{ secrets.BOX_OFFICE_CHART_URL }}
-          BOX_OFFICE_CHART_TOKEN: ${{ secrets.BOX_OFFICE_CHART_TOKEN }}
-
-      # merge → artwork → next build (static export to out/) → postbuild (error pages, _headers, file count)
+      # merge → posters and photos → next build (static export to out/) → postbuild (error pages, _headers, ads.txt, file count)
       - name: Build site
         run: npm run build
         env:
           SITE_URL: ${{ vars.SITE_URL }}
           SITE_NAME: ${{ vars.SITE_NAME }}
           GA_ID: ${{ vars.GA_ID }}
-          TMDB_READ_TOKEN: ${{ secrets.TMDB_READ_TOKEN }}
+          ADSENSE_CLIENT: ${{ vars.ADSENSE_CLIENT }}
+          ADSENSE_SLOT: ${{ vars.ADSENSE_SLOT }}
           CONTACT_EMAIL: ${{ vars.CONTACT_EMAIL }}
+          SITE_OWNER: ${{ vars.SITE_OWNER }}
+          IMDB_RATINGS: ${{ vars.IMDB_RATINGS }}
 
       # Creates the Cloudflare Pages project on the first run; fails harmlessly once it exists.
       - name: Create Cloudflare Pages project

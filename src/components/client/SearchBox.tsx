@@ -7,7 +7,7 @@ import type { Currency } from '@/lib/format';
 import { Money } from './basics';
 import { useLang } from './hooks';
 
-interface Item {
+export interface Item {
   label: string;
   sub: string | number;
   href: string;
@@ -28,7 +28,8 @@ const norm = (s: unknown) => String(s).normalize('NFKD').replace(/\p{Script=Inhe
   .toLowerCase().replace(/[^\p{L}\p{N}\p{M}]+/gu, ' ').trim();
 
 let indexPromise: Promise<Item[]> | null = null;
-const loadIndex = (filmsLabel: (n: number) => string) =>
+/** Loads /search.json once per page (shared by every search box and the compare tool's pickers). */
+export const loadIndex = (filmsLabel: (n: number) => string) =>
   (indexPromise ||= fetch('/search.json')
     .then((r) => {
       if (!r.ok) throw new Error('Search index unavailable');
@@ -48,7 +49,7 @@ const loadIndex = (filmsLabel: (n: number) => string) =>
       throw error;
     }));
 
-function search(items: Item[], query: string): Item[] {
+export function search(items: Item[], query: string, limit = 10): Item[] {
   const q = norm(query);
   if (!q) return [];
   const tokens = q.split(' ');
@@ -59,7 +60,7 @@ function search(items: Item[], query: string): Item[] {
     out.push([score, it]);
   }
   out.sort((a, b) => a[0] - b[0] || b[1].weight - a[1].weight);
-  return out.slice(0, 10).map((x) => x[1]);
+  return out.slice(0, limit).map((x) => x[1]);
 }
 
 /**

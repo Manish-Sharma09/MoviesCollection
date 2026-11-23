@@ -59,11 +59,24 @@ export function ThemeToggle({ label, children }: { label: string; children: Reac
   );
 }
 
-/** Phones: the magnifier in the header focuses the (collapsed) header search field, which then expands. */
-export function SearchToggle({ target, label }: { target: string; label: string }) {
+/**
+ * Phones: the magnifier in the header focuses the (collapsed) header search field, which then expands.
+ * With `jump` (the home page, whose search is in the banner) it is shown on every screen and scrolls to
+ * that search field before focusing it.
+ */
+export function SearchToggle({ target, label, jump = false, tools = false }: { target: string; label: string; jump?: boolean; tools?: boolean }) {
+  const open = () => {
+    const field = document.getElementById(target);
+    if (!field) return;
+    if (jump) {
+      const still = window.matchMedia('(prefers-reduced-motion: reduce)').matches;
+      field.scrollIntoView({ behavior: still ? 'auto' : 'smooth', block: 'center' });
+      field.focus({ preventScroll: true });
+    } else field.focus();
+  };
   return (
-    <button type="button" className="search-toggle" aria-controls={target} title={label}
-      onClick={() => document.getElementById(target)?.focus()}>
+    <button type="button" className={tools ? 'search-toggle search-jump' : 'search-toggle'} aria-controls={target} title={label}
+      onClick={open}>
       <span className="sr-only">{label}</span>
       <svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="10.5" cy="10.5" r="6.5" /><path d="m15.5 15.5 5 5" /></svg>
     </button>

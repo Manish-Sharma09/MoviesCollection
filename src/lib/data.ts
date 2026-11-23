@@ -1,12 +1,12 @@
 // Everything the pages need, computed once per build worker from data/movies.json
 // (written by scripts/merge.mjs). Server-only: never import this from a client component.
 import { createHash } from 'node:crypto';
-import { readFileSync } from 'node:fs';
+import { readdirSync, readFileSync, statSync } from 'node:fs';
 import { join } from 'node:path';
 import { hindiLanguageName, slugify, type Currency } from './format';
-import { CONTACT_EMAIL, GA_ID, SITE } from './site';
+import { ADSENSE_CLIENT, CONTACT_EMAIL, GA_ID, SITE } from './site';
 import type {
-  ChartFilm, CinemaBoard, CinemaEntry, Club, ClubSlug, DailyRow, Film, Language, MoviesFile, Person, RankItem, Stats,
+  ChartFilm, CinemaBoard, CinemaEntry, Club, ClubSlug, DailyRow, Film, Language, Money, MoviesFile, Person, RankItem, Stats,
 } from './types';
 import { readChartSync } from './worldwide-chart';
 
@@ -33,16 +33,7 @@ const TODAY = Date.now();
 /** When this build ran; the live page computes its first (static) render at this moment. */
 export const BUILD_TIME = TODAY;
 
-// ---------- artwork (TMDB paths, bundled starter set + cache filled by scripts/fetch-artwork.mjs) ----------
-
-type Art = { poster?: string | null; backdrop?: string | null; tmdb?: string | null };
-const featuredArt = readJson<Record<string, Art>>('data/featured-art.json', {});
-const fetchedArt = readJson<Record<string, Art>>('data/raw/artwork.json', {});
-// Per film, keep whichever source has the picture (a fetched entry without a poster must not hide a bundled one).
-const artwork: Record<string, Art> = { ...featuredArt };
-for (const [id, a] of Object.entries(fetchedArt)) {
-  artwork[id] = { poster: a.poster || featuredArt[id]?.poster, backdrop: a.backdrop || featuredArt[id]?.backdrop, tmdb: a.tmdb };
-}
+// ---------- posters ----------
 
 // Wikimedia serves images from upload.wikimedia.org and (newer) thumb.wikimedia.org; the API adds tracking
 // parameters, which are dropped so every page uses one clean, cacheable address per image.
@@ -70,35 +61,64 @@ for (const f of films) {
   const p = f.enwiki ? wikiPages[f.enwiki] : undefined;
   if (p?.thumb && WIKIMEDIA.test(p.thumb)) wikiPosterById.set(f.id, p);
 }
-const wikiPosterUrl = (p: WikiPoster, px: number) => wikimediaAt(p.original || p.thumb!, p.width, px);
 
-const TMDB_PATH = /^\/[\w.-]+\.(jpg|png|webp)$/i;
-export type ArtSize = 'w92' | 'w342' | 'w500' | 'w1280';
-const WIKI_WIDTH: Record<ArtSize, number> = { w92: 120, w342: 330, w500: 500, w1280: 960 };
+/** Poster widths Wikimedia serves as standard thumbnails: list rows, cards, and the film page's structured data. */
+export type PosterWidth = 120 | 330 | 500;
 
-/**
- * A film's poster or backdrop: TMDB art when there is some (the bundled starter set, or fetched with an
- * optional token), otherwise the poster from its Wikipedia article. Backdrops come from TMDB only.
- */
-export function artUrl(f: { tmdb?: string | null; id?: string }, kind: 'poster' | 'backdrop', size: ArtSize): string {
-  const tmdb = f.tmdb || (f.id ? artwork[`qid:${f.id}`]?.tmdb : null);
-  const path = tmdb ? artwork[tmdb]?.[kind] : undefined;
-  if (typeof path === 'string' && TMDB_PATH.test(path)) return `https://image.tmdb.org/t/p/${size}${path}`;
-  const wiki = kind === 'poster' && f.id ? wikiPosterById.get(f.id) : undefined;
-  return wiki ? wikiPosterUrl(wiki, WIKI_WIDTH[size]) : '';
+// ---------- your own artwork (public/banners/) ----------
+// High-quality images you supply, named after the film's slug (the part of its page address after /movie/):
+//   <slug>.jpg         a wide banner (landscape, ~1920×1080): a sharp full-bleed backdrop on the home page
+//                      spotlight and the film page's board
+//   <slug>-poster.jpg  a high-resolution poster (portrait, ~600×900): replaces the Wikipedia poster wherever
+//                      posters are shown at 330px or larger (small list thumbnails keep Wikipedia's small file)
+// .jpg, .jpeg, .png, .webp and .avif all work. The file's modified time goes into the address, so replacing
+// a file shows the new one straight away despite long browser caching.
+const ART_DIR = join(process.cwd(), 'public', 'banners');
+const ART_EXT = /\.(jpe?g|png|webp|avif)$/i;
+// A build reads the folder once. `next dev` re-reads it every few seconds, so images you add or remove
+// show up on the next page load without restarting the server.
+const DEV = process.env.NODE_ENV !== 'production';
+let ownArtCache: { at: number; map: Map<string, string> } | null = null;
+function ownArt(): Map<string, string> {
+  if (ownArtCache && (!DEV || Date.now() - ownArtCache.at < 3000)) return ownArtCache.map;
+  const map = new Map<string, string>();
+  try {
+    for (const name of readdirSync(ART_DIR)) {
+      if (!ART_EXT.test(name)) continue;
+      const version = Math.round(statSync(join(ART_DIR, name)).mtimeMs).toString(36);
+      map.set(name.replace(ART_EXT, '').toLowerCase(), `/banners/${encodeURIComponent(name)}?v=${version}`);
+    }
+  } catch { /* no banners folder: Wikipedia posters only */ }
+  ownArtCache = { at: Date.now(), map };
+  return map;
+}
+
+/** Your wide banner for a film (public/banners/<slug>.jpg), or '' when there is none. */
+export const bannerUrl = (f: { slug?: string }): string => (f.slug && ownArt().get(f.slug)) || '';
+
+/** The film's Wikipedia poster only (the fallback when your own image fails to load). */
+export function wikiPosterUrl(f: { id?: string }, width: PosterWidth): string {
+  const wiki = f.id ? wikiPosterById.get(f.id) : undefined;
+  return wiki ? wikimediaAt(wiki.original || wiki.thumb!, wiki.width, width) : '';
+}
+
+/** A film's poster: your high-resolution one for larger sizes, else its Wikipedia poster at the given width, or ''. */
+export function posterUrl(f: { id?: string; slug?: string }, width: PosterWidth): string {
+  const own = width >= 330 && f.slug ? ownArt().get(`${f.slug}-poster`) : undefined;
+  if (own) return own;
+  const wiki = f.id ? wikiPosterById.get(f.id) : undefined;
+  return wiki ? wikimediaAt(wiki.original || wiki.thumb!, wiki.width, width) : '';
 }
 
 // ---------- photos of people ----------
-// Wikimedia Commons first (free licences; shown with the photographer's credit), then TMDB profiles.
+// Wikimedia Commons only (free licences; shown with the photographer's credit).
 
 interface CommonsFile { thumb?: string; page?: string; artist?: string | null; license?: string | null; licenseUrl?: string | null }
 const commons = readJson<{ people?: Record<string, { file: string }>; files?: Record<string, CommonsFile> }>('data/raw/people.json', {});
-const tmdbPeople = readJson<Record<string, { profile?: string }>>('data/raw/tmdb-people.json', {});
 
 export interface Photo {
   url: string;
-  /** Commons photos carry their credit; TMDB photos are covered by the TMDB notice in the footer. */
-  credit: { artist: string | null; license: string | null; licenseUrl: string | null; page: string } | null;
+  credit: { artist: string | null; license: string | null; licenseUrl: string | null; page: string };
 }
 
 /**
@@ -127,32 +147,78 @@ export function photoFor(name: string): Photo | null {
     const page = `https://commons.wikimedia.org/wiki/File:${encodeURIComponent(file!.replace(/ /g, '_'))}`;
     return { url: derived, credit: { artist: null, license: null, licenseUrl: null, page } };
   }
-  const profile = tmdbPeople[slug]?.profile;
-  if (profile && TMDB_PATH.test(profile)) return { url: `https://image.tmdb.org/t/p/w185${profile}`, credit: null };
   return null;
 }
 
-// ---------- worldwide lifetime chart (Box Office Mojo top 200) ----------
+// ---------- India / overseas split ----------
+// Totals written in each Indian film's Wikipedia "Box office" section (scripts/fetch-boxoffice.mjs). A figure is
+// shown only when it agrees with the film's worldwide gross: India net 15–95% of it, India gross 18–100% and
+// 1.03–1.4× the net, overseas 2–85%, and India plus overseas within 20% of the worldwide total.
 
-export const MOJO_URL = 'https://www.boxofficemojo.com/chart/top_lifetime_gross/?area=XWW';
-export const chart = readChartSync();
+type TextFigure = { inr?: number; usd?: number };
+const boxText = readJson<{ pages?: Record<string, { indiaNet?: TextFigure; indiaGross?: TextFigure; overseas?: TextFigure }> }>(
+  'data/raw/boxoffice.json', {},
+).pages || {};
 
-const worldwideKey = (title: string, year: number | null) =>
-  `${slugify(title.replace(/^Star Wars: Episode [IVX]+ - /, 'Star Wars: '))}-${year}`;
-// Chart rows are matched to catalog films by title and year; ambiguous titles stay unmatched.
-const catalogByTitle = new Map<string, Film | null>();
-for (const film of films) {
-  const key = worldwideKey(film.title, film.year);
-  catalogByTitle.set(key, catalogByTitle.has(key) ? null : film);
+export interface Markets { indiaNet?: Money; indiaGross?: Money; overseas?: Money }
+
+const asMoney = (a?: TextFigure): Money | undefined => {
+  if (!a || !(a.inr || a.usd)) return undefined;
+  return a.inr ? { inr: a.inr, usd: a.inr / RATE.inrPerUsd } : { usd: a.usd!, inr: a.usd! * RATE.inrPerUsd };
+};
+
+export function marketsOf(f: Film): Markets | null {
+  const e = f.indian && f.enwiki ? boxText[f.enwiki] : undefined;
+  if (!e) return null;
+  const share = (m: Money) => m.inr / f.gross.inr;
+  let net = asMoney(e.indiaNet);
+  let gross = asMoney(e.indiaGross);
+  let overseas = asMoney(e.overseas);
+  if (net && !(share(net) >= 0.15 && share(net) <= 0.95)) net = undefined;
+  if (gross && !(share(gross) >= 0.18 && share(gross) <= 1)) gross = undefined;
+  if (net && gross && !(gross.inr / net.inr >= 1.03 && gross.inr / net.inr <= 1.4)) gross = undefined;
+  if (overseas && !(share(overseas) >= 0.02 && share(overseas) <= 0.85)) overseas = undefined;
+  const india = gross?.inr ?? (net ? net.inr * 1.18 : undefined);
+  if (overseas && india && Math.abs((india + overseas.inr) / f.gross.inr - 1) > 0.2) overseas = undefined;
+  if (!net && !gross && !overseas) return null;
+  return { ...(net && { indiaNet: net }), ...(gross && { indiaGross: gross }), ...(overseas && { overseas }) };
 }
-export const worldwide: ChartFilm[] = chart.films.map(([title, year, usd], i) => {
-  const film = catalogByTitle.get(worldwideKey(title, year));
-  return {
-    id: film?.id, slug: film?.slug, tmdb: film?.tmdb, title, year, rank: i + 1,
-    gross: { usd, inr: Math.round(usd * RATE.inrPerUsd) },
-  };
+
+// ---------- all-time worldwide chart ----------
+// The top 50 come from Wikipedia's "List of highest-grossing films" (src/lib/worldwide-chart.ts); every
+// other film follows by the worldwide gross on its own Wikipedia article. 500 places in all.
+
+export { CHART_URL } from './worldwide-chart';
+export const chart = readChartSync();
+const CHART_LENGTH = 500;
+
+const byArticle = new Map(films.filter((f) => f.enwiki).map((f) => [f.enwiki!, f]));
+const chartKey = (title: string, year: number | null) => `${slugify(title)}-${year}`;
+// Fallback match by title and year, for a film whose article was renamed since the list was read;
+// ambiguous titles stay unmatched.
+const byTitle = new Map<string, Film | null>();
+for (const film of films) {
+  const key = chartKey(film.title, film.year);
+  byTitle.set(key, byTitle.has(key) ? null : film);
+}
+
+const listed: ChartFilm[] = chart.films.map(([title, year, usd, article]) => {
+  const film = byArticle.get(article) ?? byTitle.get(chartKey(title, year)) ?? undefined;
+  return { id: film?.id, slug: film?.slug, title, year, rank: 0, gross: { usd, inr: Math.round(usd * RATE.inrPerUsd) }, listed: true };
 });
-export const worldwideById = new Map(worldwide.filter((f) => f.id).map((f) => [f.id!, f]));
+const onList = new Set(listed.map((f) => f.id).filter(Boolean));
+// A film whose own article claims at least the list's smallest figure, yet is not on the list, disagrees
+// with the list (rounded or differently counted totals, such as re-releases); it is left out rather than
+// ranked below films it claims to beat.
+const listFloor = listed.at(-1)?.gross.usd ?? Infinity;
+export const worldwide: ChartFilm[] = [
+  ...listed,
+  ...films.filter((f) => !onList.has(f.id) && f.gross.usd < listFloor).slice(0, CHART_LENGTH - listed.length).map((f) => ({
+    id: f.id, slug: f.slug, title: f.title, year: f.year, rank: 0, gross: { usd: f.gross.usd, inr: f.gross.inr }, listed: false,
+  })),
+].map((f, i) => ({ ...f, rank: i + 1 }));
+/** Films on Wikipedia's list, by id: their film pages quote the list's figure and rank. */
+export const worldwideById = new Map(worldwide.filter((f) => f.listed && f.id).map((f) => [f.id!, f]));
 
 // ---------- indexes ----------
 
@@ -227,10 +293,10 @@ export const dailyRows = (f: Film): DailyRow[] => (f.daily || []).filter((d) => 
 export const personFor = (name: string) => people.get(slugify(name));
 
 export const STATS: Stats = {
-  site: SITE.name, url: SITE.url, email: CONTACT_EMAIL, analytics: Boolean(GA_ID),
+  site: SITE.name, url: SITE.url, email: CONTACT_EMAIL, owner: SITE.owner, analytics: Boolean(GA_ID), ads: Boolean(ADSENSE_CLIENT),
   films: films.length, indian: indian.length, people: people.size, languages: languages.length,
   firstYear: yearsSorted.at(-1)!, lastYear: yearsSorted[0], rate: RATE.inrPerUsd, rateDate: RATE.date,
-  topIndian: indian[0], topWorld: worldwide[0], worldwideCount: worldwide.length,
+  topIndian: indian[0], topWorld: worldwide[0], worldwideCount: worldwide.length, listedCount: listed.length,
   clubs: Object.fromEntries(CLUBS.map((c) => [c.slug, c.list])) as Record<ClubSlug, Film[]>,
   liveCount: films.filter((f) => f.live).length,
 };
@@ -273,6 +339,9 @@ export const inCinemas: Film[] = films
   .sort((a, b) => Number(liveActive(b)) - Number(liveActive(a))
     || (liveActive(a) ? b.live!.base.usd - a.live!.base.usd : b.gross.usd - a.gross.usd));
 
+/** "No. 1 today": a film's place among those with a running estimate, by today's estimated business. */
+export const todayRank = new Map(inCinemas.filter(liveActive).map((f, i) => [f.id, i + 1]));
+
 export const cinemaBoard = (): CinemaBoard => ({
   generatedAt: data.generatedAt,
   checkedAt: sourcesCheckedAt,
@@ -290,7 +359,7 @@ export const cinemaBoard = (): CinemaBoard => ({
       live: f.live ?? null,
       liveNow: liveActive(f),
       lastReport: lastReportOf(f),
-      poster: artUrl(f, 'poster', 'w92'),
+      poster: posterUrl(f, 120),
       trend: trendOf(f),
     };
   }),

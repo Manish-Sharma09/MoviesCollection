@@ -8,10 +8,12 @@
 //    at ~68,000 files, past Cloudflare Pages' 20,000-file limit. Every page's HTML has its own inline
 //    payload for hydration.
 // 3. _headers: security headers, caching, and noindex for the *.pages.dev copy once a domain is set.
-// 4. Fails the build if the file count is still over the limit.
+// 4. ads.txt, naming the site's AdSense account as its only authorised ad seller (when ADSENSE_CLIENT is set).
+// 5. Fails the build if the file count is still over the limit.
+// 6. Warns about settings AdSense reviewers look for (custom domain, contact address, who runs the site).
 import { readdir, rename, rm, writeFile } from 'node:fs/promises';
 import { join } from 'node:path';
-import { SITE } from '../src/lib/site.ts';
+import { ADSENSE_CLIENT, CONTACT_EMAIL, SITE } from '../src/lib/site.ts';
 
 const OUT = join(process.cwd(), 'out');
 const MAX_FILES = 20_000;
@@ -22,6 +24,8 @@ for (const [from, to] of [['error-404', '404.html'], ['hi/error-404', 'hi/404.ht
   await rm(join(OUT, from), { recursive: true });
 }
 await rm(join(OUT, '_not-found'), { recursive: true, force: true });
+// Next's own bare not-found page (served at /404/); 404.html replaces it.
+await rm(join(OUT, '404'), { recursive: true, force: true });
 
 // 2. RSC payloads: index.txt and __next.*.txt next to every page
 const isPayload = (name) => name === 'index.txt' || (name.startsWith('__next.') && name.endsWith('.txt'));
@@ -68,10 +72,23 @@ https://:version.:project.pages.dev/*
   Cache-Control: public, max-age=604800
 `);
 
-// 4. File count
+// 4. ads.txt (IAB format; f08c47fec0942fa0 is Google's certification authority ID)
+if (ADSENSE_CLIENT) {
+  await writeFile(join(OUT, 'ads.txt'), `google.com, ${ADSENSE_CLIENT.replace(/^ca-/, '')}, DIRECT, f08c47fec0942fa0\n`);
+}
+
+// 5. File count
 const files = (await readdir(OUT, { recursive: true, withFileTypes: true })).filter((e) => e.isFile()).length;
 console.log(`Post-build: removed ${removed} RSC payload files; out/ has ${files.toLocaleString('en-US')} files (limit ${MAX_FILES.toLocaleString('en-US')}).`);
 if (files > MAX_FILES) {
   console.error(`out/ has more than ${MAX_FILES} files, which Cloudflare Pages will reject.`);
   process.exit(1);
 }
+
+// 6. AdSense readiness. Not errors: the site builds either way, but a review is likely to fail without these.
+const missing = [
+  SITE.onPagesDev && 'SITE_URL is a *.pages.dev address; AdSense only approves a domain you own.',
+  !CONTACT_EMAIL && 'No contact address: set CONTACT_EMAIL (or a custom domain with Cloudflare Email Routing for contact@).',
+  !SITE.owner && 'SITE_OWNER is not set: the about page and guides do not say who runs the site.',
+].filter(Boolean);
+if (missing.length) console.warn(`AdSense readiness:\n  - ${missing.join('\n  - ')}`);

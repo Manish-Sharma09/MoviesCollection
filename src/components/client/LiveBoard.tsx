@@ -80,32 +80,34 @@ export function LiveBoard({ initial, buildTime }: { initial: CinemaBoard; buildT
 
   return (
     <>
-      <div className="stat-card live-summary" role="group" aria-label={text.todayAll}>
-        <div className="stat-main">
-          <div className="stat-top">
-            <p className="stat-label">{text.todayAll}</p>
+      {/* The same box office board as film pages: an ink marquee with flip-board digits, torn from a stub. */}
+      <div className="board live-summary" role="group" aria-label={text.todayAll}>
+        <div className="board-top">
+          <div className="board-meta">
+            <span className={today.inr > 0 ? 'board-label is-live' : 'board-label'}>{text.todayAll}</span>
             {real !== null && estimating ? <Countdown real={real} step={step} text={text} /> : null}
           </div>
-          <span className={today.inr > 0 ? 'stat-figure is-live' : 'stat-figure'}>
+          <p className="board-figure">
             {today.inr > 0 ? <Figure parts={splitFigure(cur, today.usd, today.inr, lang)} /> : <span className="m">—</span>}
-          </span>
-          <p className="stat-alt">
-            {today.inr > 0 ? <span className="m">{formatFine(otherCurrency(cur), today.usd, today.inr, lang)}</span> : text.beforeShows}
           </p>
-          <p className="live-note live-arrived" role="status">{arrived ? text.updatedNow : ''}</p>
+          <p className="board-line">
+            {today.inr > 0 ? <span className="m">{formatFine(otherCurrency(cur), today.usd, today.inr, lang)}</span> : text.beforeShows}
+            <span className="live-arrived" role="status">{arrived ? text.updatedNow : ''}</span>
+          </p>
         </div>
-        <ul className="stat-ranks">
-          <li><span className="rank"><b>{board.films.length}</b> <small>{text.inCinemas}</small></span></li>
-          <li><span className="rank"><b>{estimating}</b> <small>{text.liveEstimates}</small></span></li>
-          {checked ? (
-            <li>
-              <span className="rank">
-                <b>{ist(checked, lang, { hour: 'numeric', minute: '2-digit' })}</b>{' '}
-                <small>{text.checked}, {ist(checked, lang, { day: 'numeric', month: 'short' })}</small>
-              </span>
-            </li>
-          ) : null}
-        </ul>
+        <div className="board-stub">
+          <dl className="stub-stats">
+            <div><dt>{text.inCinemas}</dt><dd className="m">{board.films.length}</dd></div>
+            <div><dt>{text.liveEstimates}</dt><dd className="m">{estimating}</dd></div>
+            {checked ? (
+              <div>
+                <dt>{text.checked}</dt>
+                <dd className="m">{ist(checked, lang, { hour: 'numeric', minute: '2-digit' })}</dd>
+                <dd className="stub-sub">{ist(checked, lang, { day: 'numeric', month: 'short' })}</dd>
+              </div>
+            ) : null}
+          </dl>
+        </div>
       </div>
 
       {liveRows.length ? (
@@ -129,12 +131,8 @@ export function LiveBoard({ initial, buildTime }: { initial: CinemaBoard; buildT
 function Countdown({ real, step, text }: { real: number; step: number; text: Text }) {
   const secondsLeft = Math.max(1, Math.ceil((step + STEP - real) / 1000));
   return (
-    <p className="next-update">
-      <svg className="countdown-ring" viewBox="0 0 20 20" aria-hidden="true">
-        <circle className="track" cx="10" cy="10" r="8" />
-        <circle key={step} className="fill" cx="10" cy="10" r="8" pathLength={1} strokeDasharray="1" strokeDashoffset={1 - (real - step) / STEP} />
-      </svg>
-      {text.nextUpdate} <b>{secondsLeft}s</b>
+    <p className="board-refresh">
+      {text.nextUpdate} <b>{`${Math.floor(secondsLeft / 60)}:${String(secondsLeft % 60).padStart(2, '0')}`}</b>
     </p>
   );
 }

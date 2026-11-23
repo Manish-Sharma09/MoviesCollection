@@ -131,10 +131,11 @@ function offsetIn(el: HTMLElement, ancestor: HTMLElement) {
 }
 
 /**
- * A poster as an image WebGL may read. TMDB sends its CORS header only to requests that carry an Origin
- * and does not vary its caching on it, so a copy cached by the page's own <img> (no Origin) fails a CORS
- * check. If the cached copy is refused, the poster is fetched again past the cache. The image is decoded
- * from a same-origin blob, so it never taints the canvas.
+ * A poster as an image WebGL may read. Wikimedia sends a CORS header with every image, but an image CDN
+ * that sends it only to requests carrying an Origin (and caches without varying on it) would hand back the
+ * copy cached by the page's own <img> (no Origin), which fails a CORS check. If the cached copy is refused,
+ * the poster is fetched again past the cache. The image is decoded from a same-origin blob, so it never
+ * taints the canvas.
  */
 async function loadImage(url: string): Promise<HTMLImageElement> {
   let response: Response;

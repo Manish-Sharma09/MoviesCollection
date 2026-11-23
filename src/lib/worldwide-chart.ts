@@ -1,50 +1,59 @@
-// Box Office Mojo worldwide top-200 snapshot. Read by the pages at build time and by
-// scripts/fetch-worldwide-chart.mjs (Node runs this file directly: keep imports to node: built-ins
-// and TypeScript erasable). Paths are relative to the project root, where npm scripts run.
+// The all-time worldwide chart: the top-50 table of Wikipedia's "List of highest-grossing films"
+// (scripts/fetch-worldwide-chart.mjs). Read by the pages at build time and by that script (Node runs this
+// file directly: keep imports to node: built-ins and TypeScript erasable). Paths are relative to the
+// project root, where npm scripts run.
 import { readFileSync } from 'node:fs';
 import { readFile } from 'node:fs/promises';
 import { join } from 'node:path';
 
-export type ChartRow = [title: string, year: number, usd: number];
+export const CHART_PAGE = 'List of highest-grossing films';
+export const CHART_URL = 'https://en.wikipedia.org/wiki/List_of_highest-grossing_films';
+
+/** Title as shown on the list, release year, worldwide gross in US$, and the linked Wikipedia article. */
+export type ChartRow = [title: string, year: number, usd: number, article: string];
 export interface Chart {
+  /** When the list was last edited (the revision the rows come from). */
   asOf: string;
+  revid: number;
   films: ChartRow[];
 }
 
 export const bundledChart = join(process.cwd(), 'data', 'worldwide-lifetime.json');
 export const cachedChart = join(process.cwd(), 'data', 'raw', 'worldwide-lifetime.json');
 
-export function validateChart({ asOf, films }: { asOf?: unknown; films?: unknown }): Chart {
+const MIN_ROWS = 25;
+const MAX_ROWS = 200;
+
+export function validateChart({ asOf, revid, films }: { asOf?: unknown; revid?: unknown; films?: unknown }): Chart {
   const observedAt = Date.parse(String(asOf));
   const timestamp = typeof asOf === 'string' && /T.*(?:Z|[+-]\d{2}:\d{2})$/.test(asOf);
   if (!timestamp || !Number.isFinite(observedAt) || observedAt > Date.now()) {
-    throw new Error('The chart needs a valid source timestamp with a time zone.');
+    throw new Error('The chart needs a valid revision timestamp with a time zone.');
   }
-
-  if (!Array.isArray(films) || films.length !== 200) {
-    throw new Error('Expected the complete top 200 worldwide chart.');
+  if (!Number.isSafeInteger(revid) || (revid as number) <= 0) throw new Error('The chart needs a revision id.');
+  if (!Array.isArray(films) || films.length < MIN_ROWS || films.length > MAX_ROWS) {
+    throw new Error(`Expected ${MIN_ROWS} to ${MAX_ROWS} chart rows.`);
   }
 
   const seen = new Set<string>();
   let previousGross = Infinity;
   for (const row of films) {
-    if (!Array.isArray(row) || row.length !== 3) throw new Error('Invalid chart row.');
-    const [title, year, gross] = row;
-    if (typeof title !== 'string' || !title.trim() || !Number.isInteger(year) ||
-        year < 1888 || year > new Date().getUTCFullYear() + 1 ||
+    if (!Array.isArray(row) || row.length !== 4) throw new Error('Invalid chart row.');
+    const [title, year, gross, article] = row;
+    if (typeof title !== 'string' || !title.trim() || typeof article !== 'string' || !article.trim() ||
+        !Number.isInteger(year) || year < 1888 || year > new Date().getUTCFullYear() + 1 ||
         !Number.isSafeInteger(gross) || gross <= 0 || gross > previousGross) {
-      throw new Error('Chart rows must contain title, year and USD gross in descending gross order.');
+      throw new Error('Chart rows must contain title, year, USD gross and article, in descending gross order.');
     }
-    const key = JSON.stringify([title.trim().toLowerCase(), year]);
-    if (seen.has(key)) throw new Error('Duplicate title and year in chart.');
-    seen.add(key);
+    if (seen.has(article)) throw new Error(`Duplicate article in chart: ${article}`);
+    seen.add(article);
     previousGross = gross;
   }
 
-  return { asOf: asOf as string, films: films as ChartRow[] };
+  return { asOf: asOf as string, revid: revid as number, films: films as ChartRow[] };
 }
 
-/** The newer of the bundled snapshot and the cached feed (data/raw), ignoring an invalid cache. */
+/** The newer of the bundled snapshot and the cached copy (data/raw), ignoring an invalid cache. */
 function newest(bundledText: string, readCached: () => string): Chart {
   const bundled = validateChart(JSON.parse(bundledText));
   try {

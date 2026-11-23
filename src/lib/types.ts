@@ -45,7 +45,8 @@ export interface Film {
   starring: string[];
   runtime: number | null;
   imdb: string | null;
-  tmdb: string | null;
+  /** IMDb user rating (out of 10) and vote count, from scripts/fetch-ratings.mjs. */
+  rating?: { value: number; votes: number } | null;
   enwiki: string | null;
   gross: Amount;
   domestic: Amount | null;
@@ -63,22 +64,24 @@ export interface MoviesFile {
   films: Film[];
 }
 
-/** A row of the Box Office Mojo worldwide chart, matched to a catalog film when possible. */
+/**
+ * A place on the all-time worldwide chart, matched to a catalog film when possible. `listed` rows come
+ * from Wikipedia's "List of highest-grossing films"; the rest are catalog films ranked by their own figure.
+ */
 export interface ChartFilm {
   id?: string;
   slug?: string;
-  tmdb?: string | null;
   title: string;
-  year: number;
+  year: number | null;
   rank: number;
   gross: Money;
+  listed: boolean;
 }
 
 /** Anything a ranked list can show: catalog films and chart rows. */
 export type RankItem = Pick<Film, 'title'> & {
   id?: string;
   slug?: string;
-  tmdb?: string | null;
   year: number | null;
   gross: Money;
   live?: LiveInfo;
@@ -112,7 +115,11 @@ export interface Stats {
   site: string;
   url: string;
   email: string | null;
+  /** SITE_OWNER: the person or business that runs the site, or null. */
+  owner: string | null;
   analytics: boolean;
+  /** Google AdSense is set up (ADSENSE_CLIENT): the privacy policy and terms describe advertising. */
+  ads: boolean;
   films: number;
   indian: number;
   people: number;
@@ -124,6 +131,8 @@ export interface Stats {
   topIndian: Film | undefined;
   topWorld: ChartFilm | undefined;
   worldwideCount: number;
+  /** How many of the chart's places come from Wikipedia's highest-grossing list (the top of the chart). */
+  listedCount: number;
   clubs: Record<ClubSlug, Film[]>;
   liveCount: number;
 }
@@ -165,4 +174,39 @@ export interface CinemaBoard {
   generatedAt: string;
   checkedAt: string | null;
   films: CinemaEntry[];
+}
+
+// ---------- the compare tool (/compare/) ----------
+
+/**
+ * What the compare tool needs about one film. Each film page carries it as JSON (script#film-facts), so the
+ * tool reads it from the page itself and the site needs no extra file per film.
+ */
+export interface FilmFacts {
+  slug: string;
+  title: string;
+  year: number | null;
+  date: string | null;
+  language: string | null;
+  director: string | null;
+  stars: string[];
+  poster: string;
+  native: 'INR' | 'USD';
+  gross: Money;
+  budget: Money | null;
+  /** The gross in `adjustedYear` prices (src/lib/inflation.ts). */
+  adjusted: Money | null;
+  adjustedYear: number | null;
+  yearRank: number | null;
+  yearCount: number;
+  /** Place on the all-time worldwide chart (/top/). */
+  chartRank: number | null;
+  indiaNet: Money | null;
+  overseas: Money | null;
+  opening: Money | null;
+  biggestDay: Money | null;
+  /** Reported running totals, [day, usd, inr]. */
+  days: [number, number, number][];
+  live: LiveInfo | null;
+  showing: boolean;
 }
