@@ -1,7 +1,7 @@
 'use client';
 // The readout on a film page's box office board: a market switch (Worldwide / Overseas / India net), the total
 // on flip-board digits, and one line of context. Worldwide is the running total: for a film in cinemas it ticks
-// with the live estimate (src/lib/live.ts) every 5 minutes. Overseas and India figures are the totals stated in
+// with the live estimate (src/lib/live.ts) every minute. Overseas and India figures are the totals stated in
 // the film's Wikipedia article (scripts/fetch-boxoffice.mjs), checked against the worldwide gross.
 import { useState, type ReactNode } from 'react';
 import { formatFine, formatMoney, splitFigure, type Currency, type Lang } from '@/lib/format';

@@ -114,6 +114,16 @@ export function formatCount(n: number): string {
   return Number(n).toLocaleString('en-IN');
 }
 
+/** A rounded count in Indian units, as the site writes money: 45K, 12.3 lakh, 1.2 cr (Hindi: हज़ार, लाख, करोड़). */
+export function formatCompact(n: number, lang: Lang = 'en'): string {
+  const u = UNITS[lang] || UNITS.en;
+  const short = (x: number) => x.toLocaleString('en-IN', { maximumFractionDigits: x >= 100 ? 0 : 1 });
+  if (n >= 1e7) return `${short(n / 1e7)}${u.cr}`;
+  if (n >= 1e5) return `${short(n / 1e5)}${u.lakh}`;
+  if (n >= 1e3) return `${short(n / 1e3)}${u.K}`;
+  return String(Math.round(n));
+}
+
 // Language names in Hindi, from the runtime's own locale data, for the /hi/ language pages.
 const HINDI_LANGUAGE_FIX: Record<string, string> = {
   Hindi: 'हिंदी', Mandarin: 'मंदारिन', Bengali: 'बांग्ला', Tagalog: 'तागालोग', 'Egyptian Arabic': 'मिस्री अरबी',

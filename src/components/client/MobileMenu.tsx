@@ -33,7 +33,7 @@ export function MobileMenu({ links, settings, labels }: {
     const onKey = (e: KeyboardEvent) => { if (e.key === 'Escape') setOpen(false); };
     document.addEventListener('keydown', onKey);
     // Wider screens show the normal header again: close the panel if the window grows past the breakpoint.
-    const wide = window.matchMedia('(min-width: 1101px)');
+    const wide = window.matchMedia('(min-width: 1241px)');
     const onWide = () => { if (wide.matches) setOpen(false); };
     wide.addEventListener('change', onWide);
     return () => {

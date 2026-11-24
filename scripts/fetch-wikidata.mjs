@@ -9,8 +9,12 @@ const BATCH = 250;
 const DAY = 86_400_000;
 const META_MAX_AGE_MS = Number(process.env.WIKIDATA_META_MAX_AGE_DAYS || 7) * DAY;
 const RECENT_MS = 183 * DAY;
+// Films due in cinemas within this many days are collected too, for the upcoming list (scripts/merge.mjs).
+const UPCOMING_DAYS = 60;
 
 // Item types that are actually films (excludes concert tours, telethons, festivals…).
+// Films not yet released are usually typed "film project" (Q18011172) until they come out.
+const FILM_PROJECT = 'wd:Q18011172';
 const FILM_TYPES = 'wd:Q11424 wd:Q202866 wd:Q20650540 wd:Q31235 wd:Q104840802 wd:Q24869 wd:Q29168811';
 
 // Countries whose films we also collect (via their Wikipedia infobox) even when Wikidata has
@@ -55,6 +59,12 @@ SELECT ?film ?k ?v WHERE {
     ?film wdt:P345 ?v BIND("imdb" AS ?k)
   } UNION {
     ?film wdt:P2047 ?rt BIND(STR(?rt) AS ?v) BIND("runtime" AS ?k)
+  } UNION {
+    ?film p:P577/psv:P577 ?tv. ?tv wikibase:timePrecision 11; wikibase:timeValue ?dt. BIND(STR(?dt) AS ?v) BIND("day" AS ?k)
+  } UNION {
+    ?film wdt:P750 ?ds. ?ds rdfs:label ?v FILTER(LANG(?v) = "en") BIND("distributor" AS ?k)
+  } UNION {
+    ?film wikibase:sitelinks ?n BIND(STR(?n) AS ?v) BIND("sitelinks" AS ?k)
   }
 }`;
 }
@@ -78,8 +88,8 @@ function toStatements(rows) {
 
 function emptyFilm(id) {
   return {
-    qid: id, label: null, enwiki: null, date: null, countries: [], languages: [],
-    directors: [], imdb: null, runtime: null,
+    qid: id, label: null, enwiki: null, date: null, dates: [], countries: [], languages: [],
+    directors: [], distributors: [], sitelinks: 0, imdb: null, runtime: null,
   };
 }
 
@@ -89,10 +99,19 @@ function applyMetadata(films, rows) {
     if (!f || !v) continue;
     switch (k) {
       case 'date': {
+        // The earliest date of any precision (often a festival premiere; a year alone reads as YYYY-01-01).
         const d = v.slice(0, 10);
         if (/^\d{4}-\d{2}-\d{2}$/.test(d) && (!f.date || d < f.date)) f.date = d;
         break;
       }
+      case 'day': {
+        // Every date known to the day, so the upcoming list can find a cinema release still to come.
+        const d = v.slice(0, 10);
+        if (/^\d{4}-\d{2}-\d{2}$/.test(d) && !f.dates.includes(d)) f.dates.push(d);
+        break;
+      }
+      case 'distributor': if (!f.distributors.includes(v)) f.distributors.push(v); break;
+      case 'sitelinks': f.sitelinks = Number(v) || 0; break;
       case 'country': if (!f.countries.includes(v)) f.countries.push(v); break;
       case 'language': if (!f.languages.includes(v)) f.languages.push(v); break;
       case 'director': if (!f.directors.includes(v)) f.directors.push(v); break;
@@ -133,6 +152,33 @@ async function main() {
     await sleep(1000);
   }
 
+  // Films from every country released in the last ~6 months or due in the next two. Wikidata only gets
+  // a box office statement months after release, so without this the films now in cinemas outside
+  // India would be missing; their figures come from the Wikipedia infobox and its edit history.
+  const recentIds = new Set();
+  {
+    const from = new Date(Date.now() - RECENT_MS).toISOString().slice(0, 10);
+    const to = new Date(Date.now() + UPCOMING_DAYS * DAY).toISOString().slice(0, 10);
+    console.log(`Wikidata: films released ${from} – ${to} with an English Wikipedia article…`);
+    const rows = await sparql(
+      `SELECT DISTINCT ?film WHERE {
+        VALUES ?type { ${FILM_TYPES} ${FILM_PROJECT} }
+        ?film wdt:P31 ?type; wdt:P577 ?d.
+        FILTER(?d >= "${from}T00:00:00Z"^^xsd:dateTime && ?d < "${to}T00:00:00Z"^^xsd:dateTime)
+        ?wp schema:about ?film; schema:isPartOf <https://en.wikipedia.org/>.
+      }`,
+      'recent films'
+    );
+    let added = 0;
+    for (const r of rows) {
+      const id = qid(r.film);
+      recentIds.add(id);
+      if (!films[id]) { films[id] = emptyFilm(id); added++; }
+    }
+    console.log(`  +${added} films`);
+    await sleep(1000);
+  }
+
   // Resume from a previous run that stopped half way (metadata is the slow part).
   await mkdir(new URL('../data/raw/', import.meta.url), { recursive: true });
   const partial = await readFile(PARTIAL, 'utf8').then(JSON.parse).catch(() => ({ films: {} }));
@@ -146,7 +192,8 @@ async function main() {
   for (const [id, f] of Object.entries(previous?.films || {})) {
     if (!films[id] || done.has(id)) continue;
     const age = now - Date.parse(f.metaAt || previous.fetchedAt);
-    const recent = f.date && now - Date.parse(f.date) < RECENT_MS;
+    // Recent: released lately or due soon by any of its dates (a festival film opening in cinemas next month too).
+    const recent = recentIds.has(id) || (f.date && now - Date.parse(f.date) < RECENT_MS);
     if (age < META_MAX_AGE_MS && !recent) {
       films[id] = f;
       done.add(id);

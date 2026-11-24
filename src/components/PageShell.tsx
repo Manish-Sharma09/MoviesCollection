@@ -21,7 +21,7 @@ const HEADER_SEARCH = 'site-search';
 export const HOME_SEARCH = 'home-search';
 
 /** Top-level sections, for aria-current in the header. */
-export type NavKey = '/live/' | '/top/' | '/india/' | '/years/' | '/guides/' | '/about/';
+export type NavKey = '/live/' | '/upcoming/' | '/top/' | '/india/' | '/years/' | '/guides/' | '/about/';
 
 /** Sections that exist in English only: every language links to the English page. */
 const ENGLISH_ONLY = new Set<string>(['/guides/']);
@@ -48,7 +48,7 @@ export function PageShell({ lang, nav = null, alternates = null, headerSearch = 
   );
   const year = new Date().getUTCFullYear();
   const sections: [NavKey, string][] = [
-    ['/live/', ui.nav.liveLong], ['/top/', ui.nav.topLong], ['/india/', ui.nav.india],
+    ['/live/', ui.nav.liveLong], ['/upcoming/', ui.nav.upcomingLong], ['/top/', ui.nav.topLong], ['/india/', ui.nav.india],
     ['/years/', ui.nav.yearsLong], ['/guides/', ui.nav.guides], ['/about/', ui.nav.about],
   ];
   const menuLinks: MenuLink[] = sections.map(([href, label]) => ({
@@ -74,7 +74,7 @@ export function PageShell({ lang, nav = null, alternates = null, headerSearch = 
         <div className="wrap header-bar">
           <a className="brand" href={P('/')}><AppIcon /><span>{SITE.name}</span></a>
           <nav className="nav" aria-label={ui.navLabel}>
-            {navLink('/live/', ui.nav.live, 'nav-live')}{navLink('/top/', ui.nav.top)}{navLink('/india/', ui.nav.india)}{navLink('/years/', ui.nav.years)}{navLink('/guides/', ui.nav.guides)}{navLink('/about/', ui.nav.about)}
+            {navLink('/live/', ui.nav.live, 'nav-live')}{navLink('/upcoming/', ui.nav.upcoming)}{navLink('/top/', ui.nav.top)}{navLink('/india/', ui.nav.india)}{navLink('/years/', ui.nav.years)}{navLink('/guides/', ui.nav.guides)}{navLink('/about/', ui.nav.about)}
           </nav>
           {headerSearch ? <SearchBox id={HEADER_SEARCH} label={ui.searchLabel} placeholder={ui.searchPlaceholder} /> : null}
           <div className="header-tools">
@@ -106,8 +106,11 @@ export function PageShell({ lang, nav = null, alternates = null, headerSearch = 
               <h2 id="f-charts">{ui.footerCharts}</h2>
               <ul>
                 <li><a href={P('/live/')}>{ui.nav.liveLong}</a></li>
+                <li><a href={P('/upcoming/')}>{ui.nav.upcomingLong}</a></li>
                 <li><a href={P('/top/')}>{ui.nav.topLong}</a></li>
                 <li><a href={P('/india/')}>{ui.nav.india}</a></li>
+                <li><a href={P('/language/hindi/')}>{ui.footerBollywood}</a></li>
+                <li><a href={P('/language/english/')}>{ui.footerHollywood}</a></li>
                 <li><a href={P('/club/100-crore/')}>{c.club['100-crore'].label}</a></li>
                 <li><a href={P('/club/1000-crore/')}>{c.club['1000-crore'].label}</a></li>
                 <li><a href={P('/years/')}>{ui.nav.yearsLong}</a></li>

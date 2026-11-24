@@ -29,7 +29,7 @@ export interface Content {
     switchTitle: string;
     skip: string;
     navLabel: string;
-    nav: { live: string; liveLong: string; top: string; topLong: string; india: string; years: string; yearsLong: string; guides: string; about: string };
+    nav: { live: string; liveLong: string; upcoming: string; upcomingLong: string; top: string; topLong: string; india: string; years: string; yearsLong: string; guides: string; about: string };
     home: string;
     breadcrumb: string;
     searchLabel: string;
@@ -59,19 +59,41 @@ export interface Content {
     adLabel: string;
     copyright: Fn<[year: number, name: string]>;
     boardTitle: string;
-    boardNote: string;
+    /** Headings of the two home page groups of films in cinemas. */
+    boardGroups: { indian: string; international: string };
+    boardEmpty: string;
+    /** Link beside a home page section heading to its full chart. */
+    seeAll: string;
+    /** Home page links to the industry (language) and year charts. */
+    browseTitle: string;
+    /** Footer links to the Hindi and English language charts, by their industry names. */
+    footerBollywood: string;
+    footerHollywood: string;
+    browseIndustry: string;
+    browseYear: string;
+    /** The two lists on a year page: that year's Indian films, and every film of the year. */
+    yearIndian: Fn<[year: number]>;
+    yearAll: Fn<[year: number]>;
+    /** Home page "Trending this week" row: films ranked by Wikipedia page views over the last 7 days. */
+    trendingTitle: string;
+    trendingNote: string;
+    /** Under each trending film: its views (already formatted, e.g. "12.3 lakh"). */
+    trendingViews: Fn<[n: string]>;
+    /** Home page "Coming soon" section and upcoming film cards. */
+    upcomingTitle: string;
+    upcomingSeeAll: string;
+    /** Group of films out in the last week with no reported figure yet. */
+    outNowTitle: string;
+    advance: string;
+    /** Opens / closes the rest of a group's films on the home page. */
+    boardMore: Fn<[n: number]>;
+    boardLess: string;
     boardFallback: Fn<[year: number]>;
-    boardFallbackNote: string;
     day: Fn<[n: number]>;
     clubsTitle: string;
-    clubsNote: string;
     clubCount: Fn<[label: string]>;
     topIndia: string;
-    topIndiaNote: string;
-    allIndian: string;
     topWorld: string;
-    topWorldNote: string;
-    top500: string;
     /** Link text for Wikipedia's "List of highest-grossing films", in the chart's source line. */
     chartSource: string;
     byYear: string;
@@ -79,17 +101,10 @@ export interface Content {
     byLanguage: string;
     /** Film detail cards on the home page's recent-releases board. */
     card: {
-      released: Fn<[date: string]>;
-      budget: string;
       worldwide: string;
-      indiaNet: string;
-      indiaGross: string;
-      overseas: string;
-      northAmerica: string;
       rankToday: Fn<[n: number]>;
       indian: string;
       international: string;
-      votes: Fn<[n: string]>;
     };
     /** Phone and tablet menu (the slide-in panel). */
     menu: { open: string; close: string; title: string; settings: string };
@@ -97,8 +112,6 @@ export interface Content {
     explore: string;
     faqTitle: string;
     filmsCount: Fn<[n: number]>;
-    indianFilms: string;
-    allFilms: string;
     /** Link from the reported charts to the inflation-adjusted ones, and back. */
     adjustedLink: string;
     reportedLink: string;
@@ -122,7 +135,6 @@ export interface Content {
     kicker: string;
     h1Html: string;
     intro: string;
-    browse: string;
     /** Link to the live page from the hero and the recent-releases board. */
     live: string;
     seeAllLive: string;
@@ -144,6 +156,8 @@ export interface Content {
 
   pages: {
     live: Fn<[s: Stats, n: number], ListPage & { note: string }>;
+    /** `years`: the calendar year(s) the list covers, e.g. "2026" or "2026–27" (for titles like "Upcoming movies 2026"). */
+    upcoming: Fn<[n: number, days: number, years: string], ListPage & { note: string }>;
     top: Fn<[s: Stats], Omit<ListPage, 'intro'>>;
     india: Fn<[s: Stats], ListPage>;
     /** The charts in today's money (src/lib/inflation.ts); `year` is the price year. */
@@ -154,7 +168,8 @@ export interface Content {
     /** /explore/: the browse-by-year/language, guides, article and FAQ sections moved off the home page. */
     explore: Fn<[s: Stats], ListPage>;
     year: Fn<[year: number, n: number, indian: number], ListPage>;
-    language: Fn<[name: string, n: number], ListPage>;
+    /** `slug` lets a language use the name people search for: Hindi films as Bollywood, English ones as Hollywood. */
+    language: Fn<[name: string, n: number, slug: string], ListPage>;
     about: Fn<[s: Stats], ProsePage>;
     contact: Fn<[s: Stats], ProsePage>;
     'privacy-policy': Fn<[s: Stats], ProsePage>;

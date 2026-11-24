@@ -6,6 +6,7 @@
 // Everything plays once. Nothing runs when the visitor prefers reduced motion (gsap.matchMedia), and
 // the stylesheet only hides elements while `motion` is set and `motion-ready` is not (see theme.ts).
 import { useRef, type ReactNode } from 'react';
+import { whenIntroDone } from '../intro-state';
 import { EASE, gsap, MOTION_OK, motionOn, motionReady, ScrollTrigger, useGSAP } from './gsap';
 
 const BARS_PER_LIST = 40;
@@ -37,10 +38,15 @@ export function MotionMain({ children }: { children: ReactNode }) {
         gsap.to(counter, { value: end, duration: 1.4, ease: EASE, onUpdate: show });
       });
 
+      // Starting states are set now; the scroll triggers start once the intro overlay (if any) opens, so
+      // what is on screen animates in as it is revealed rather than unseen underneath it.
+      const later: (() => void)[] = [];
+      whenIntroDone().then(safe(() => later.forEach((start) => start())));
+
       // 1. Fade up as they enter, in small staggered groups.
       const items = q('[data-reveal]') as HTMLElement[];
       if (items.length) gsap.set(items, { autoAlpha: 0, y: 24 });
-      if (items.length) ScrollTrigger.batch(items, {
+      if (items.length) later.push(() => ScrollTrigger.batch(items, {
         start: 'top 92%',
         once: true,
         interval: 0.1,
@@ -50,7 +56,7 @@ export function MotionMain({ children }: { children: ReactNode }) {
           gsap.to(batch, { autoAlpha: 1, y: 0, duration: 0.8, ease: EASE, stagger: 0.06, overwrite: true, clearProps: 'all' });
           batch.forEach((el) => el.querySelectorAll<HTMLElement>('[data-countup]').forEach(countUp));
         }),
-      });
+      }));
 
       // 2. Ranking bars grow from the left as their rows come into view.
       for (const list of q('.ranks') as HTMLElement[]) {
@@ -59,14 +65,14 @@ export function MotionMain({ children }: { children: ReactNode }) {
         const bars = rows.map(barOf).filter(Boolean);
         if (!bars.length) continue;
         gsap.set(bars, { scaleX: 0, transformOrigin: 'left center' });
-        ScrollTrigger.batch(rows, {
+        later.push(() => ScrollTrigger.batch(rows, {
           start: 'top 95%',
           once: true,
           interval: 0.1,
           onEnter: safe((batch: Element[]) => {
             gsap.to(batch.map(barOf).filter(Boolean), { scaleX: 1, duration: 1.1, ease: EASE, stagger: 0.04, clearProps: 'transform' });
           }),
-        });
+        }));
       }
 
       // 3. Day-by-day bars on film pages (open weeks only) grow to their length (data-w) the same way.
@@ -75,7 +81,7 @@ export function MotionMain({ children }: { children: ReactNode }) {
       const dayBars = dayRows.map(dayBar).filter((b): b is HTMLElement => Boolean(b));
       if (dayBars.length) {
         gsap.set(dayBars, { scaleX: 0, transformOrigin: 'left center' });
-        ScrollTrigger.batch(dayRows, {
+        later.push(() => ScrollTrigger.batch(dayRows, {
           start: 'top 95%',
           once: true,
           interval: 0.1,
@@ -83,7 +89,7 @@ export function MotionMain({ children }: { children: ReactNode }) {
             const bars = batch.map(dayBar).filter((b): b is HTMLElement => Boolean(b));
             gsap.to(bars, { scaleX: (_i: number, el: HTMLElement) => Number(el.dataset.w), duration: 1, ease: EASE, stagger: 0.04 });
           }),
-        });
+        }));
       }
     });
     // Starting states are set (or animations are off): the stylesheet can stop hiding things.

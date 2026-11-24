@@ -3,11 +3,15 @@
 // only has the worldwide gross; these power the Worldwide / Overseas / India net switch on film pages.
 // src/lib/data.ts cross-checks every figure against the worldwide gross before it is shown.
 //
-// Films: Indian films that grossed ₹50 crore or more, plus every Indian film released in the last 180 days.
-// Cached in data/raw/boxoffice.json by article title: films released in the last 120 days are re-read when
-// older than 6 hours, the rest monthly. Run after scripts/merge.mjs (it reads data/movies.json).
+// It also reads the advance booking (ticket pre-sales) amount an article reports, for upcoming films and films
+// released in the last 14 days, from any country (advanceFigure, shown on upcoming film pages).
+//
+// Films: Indian films that grossed ₹50 crore or more, every Indian film released in the last 180 days, upcoming
+// films and films released in the last 14 days. Cached in data/raw/boxoffice.json by article title: upcoming films
+// and those released in the last 120 days are re-read when older than 6 hours, the rest monthly.
+// Run after scripts/merge.mjs (it reads data/movies.json).
 import { readFile, rename, writeFile } from 'node:fs/promises';
-import { boxOfficeSection, marketFigures } from './lib/boxoffice-text.mjs';
+import { advanceFigure, boxOfficeSection, marketFigures } from './lib/boxoffice-text.mjs';
 import { getJson, sleep } from './lib/http.mjs';
 
 const OUT = new URL('../data/raw/boxoffice.json', import.meta.url);
@@ -24,18 +28,22 @@ const save = async () => {
   await rename(TMP, OUT);
 };
 
-const { films } = JSON.parse(await readFile(new URL('../data/movies.json', import.meta.url), 'utf8'));
+const { films, upcoming = [] } = JSON.parse(await readFile(new URL('../data/movies.json', import.meta.url), 'utf8'));
 const age = (f) => (f.date ? now - Date.parse(f.date) : Infinity);
-const wanted = films.filter((f) => f.indian && f.enwiki && (f.gross.inr >= 50e7 || age(f) < 180 * DAY));
+const indian = films.filter((f) => f.indian && f.enwiki && (f.gross.inr >= 50e7 || age(f) < 180 * DAY));
+const justOut = films.filter((f) => f.enwiki && !f.indian && age(f) >= 0 && age(f) < 14 * DAY);
+const coming = upcoming.filter((f) => f.enwiki);
+const wanted = [...indian, ...justOut, ...coming];
 const due = wanted.filter((f) => {
   const entry = cache.pages[f.enwiki];
-  const maxAge = age(f) < 120 * DAY ? 6 * 3_600_000 : 30 * DAY;
-  return !entry || now - entry.checkedAt > maxAge;
+  const maxAge = !f.gross || age(f) < 120 * DAY ? 6 * 3_600_000 : 30 * DAY;
+  return !entry || now - entry.checkedAt > maxAge || !('advance' in entry);
 });
 const titles = [...new Set(due.map((f) => f.enwiki))];
-console.log(`Box office text: ${wanted.length} Indian films, reading ${titles.length} articles from Wikipedia`);
+console.log(`Box office text: ${indian.length} Indian films, ${justOut.length} new international releases, ${coming.length} upcoming; reading ${titles.length} articles from Wikipedia`);
 
 let withFigures = 0;
+let withAdvance = 0;
 for (let i = 0; i < titles.length; i += BATCH) {
   const batch = titles.slice(i, i + BATCH);
   const params = new URLSearchParams({
@@ -53,10 +61,12 @@ for (let i = 0; i < titles.length; i += BATCH) {
     const text = rev?.slots?.main?.content;
     const section = text ? boxOfficeSection(text) : null;
     const figures = section ? marketFigures(section) : {};
+    const advance = text ? advanceFigure(text) : null;
     if (Object.keys(figures).length) withFigures++;
-    cache.pages[asked] = { checkedAt: now, revid: rev?.revid ?? null, ...figures };
+    if (advance) withAdvance++;
+    cache.pages[asked] = { checkedAt: now, revid: rev?.revid ?? null, ...figures, advance };
   }
   await save();
   if (i + BATCH < titles.length) await sleep(1500);
 }
-console.log(`Box office text: figures found in ${withFigures} of ${titles.length} articles read.`);
+console.log(`Box office text: market figures in ${withFigures}, advance booking in ${withAdvance} of ${titles.length} articles read.`);

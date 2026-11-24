@@ -1,5 +1,5 @@
 'use client';
-// "Latest releases" spotlight on the home page: a banner slider of the newest films in cinemas.
+// "In cinemas now" spotlight on the home page: a banner slider of the top films in cinemas, Indian and international.
 //
 // Each slide takes its accent colour from its own poster (sampled in a tiny canvas; Wikimedia serves posters
 // with CORS), which tints the title, the figure box, the button and the swirl. Changing slides plays a swirl
@@ -170,9 +170,10 @@ export function LatestSpotlight({ slides, header }: { slides: SpotSlide[]; heade
                 <p className="spot-kicker" style={{ '--i': 0 } as CSSProperties}>
                   <span>{text.spotKicker}</span>{kicker ? <b>{kicker}</b> : null}
                 </p>
-                <h2 className="spot-title" style={{ '--i': 1 } as CSSProperties}>
+                {/* Not a heading: five slide titles would come before the page's real section headings. */}
+                <p className="spot-title" style={{ '--i': 1 } as CSSProperties}>
                   <a href={`/movie/${s.slug}/`} tabIndex={on ? 0 : -1}>{s.title}</a>
-                </h2>
+                </p>
                 {s.meta.length || s.rating ? (
                   <p className="spot-meta" style={{ '--i': 2 } as CSSProperties}>
                     {s.rating ? <ImdbRating value={s.rating} votes={s.votes ?? undefined} /> : null}

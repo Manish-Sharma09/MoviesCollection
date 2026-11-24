@@ -13,25 +13,28 @@ import { MilestoneStrip } from '@/components/client/film/MilestoneStrip';
 import { BoardCollection } from '@/components/client/Live';
 import { ImdbRating } from '@/components/ImdbRating';
 import { PageShell } from '@/components/PageShell';
-import { Ad, Avatar, Crumbs, FilmLink, JoinNodes, JsonLd, PhotoCredit, Poster, RankList } from '@/components/ui';
+import { Ad, Avatar, Crumbs, FaqBlock, FilmLink, JoinNodes, JsonLd, PhotoCredit, Poster, RankList } from '@/components/ui';
 import {
   BUILD_TIME, byYear, dailyRows, filmBySlug, releaseOf, films, inCinemas, isIndian, languageByName, marketsOf, nativeOf, people,
-  personFor, photoFor, posterUrl, worldwideById, bannerUrl, wikiPosterUrl,
+  personFor, photoFor, posterUrl, upcoming, worldwideById, bannerUrl, wikiPosterUrl,
 } from '@/lib/data';
 import {
-  alsoInCinemas, crossings, dayEntries, headToHead, milestoneStep, records, runDay, weekEntries, type DayEntry,
+  alsoInCinemas, crossings, dayEntries, headToHead, milestoneStep, records, runDay, weekEntries, type DayEntry, type Records,
 } from '@/lib/film-stats';
-import { countryName, formatDate, formatMoney, joinNames, slugify, type Currency } from '@/lib/format';
-import { adjustedOf, adjustedRank, CPI_YEAR, worthShowing } from '@/lib/inflation';
-import { crumbsLd, itemListLd, pageMetadata, type Crumb } from '@/lib/seo';
+import type { Markets } from '@/lib/data';
+import { countryName, escapeHtml, formatDate, formatMoney, joinNames, slugify, type Currency } from '@/lib/format';
+import { adjustedOf, adjustedRank, CPI_YEAR, worthShowing, type Adjusted } from '@/lib/inflation';
+import { crumbsLd, faqLd, itemListLd, pageMetadata, type Crumb } from '@/lib/seo';
+import { isUpcomingSlug, UpcomingCard, UpcomingMoviePage, upcomingMovieMetadata } from './upcoming';
 import { SITE } from '@/lib/site';
-import type { Film, FilmFacts, Money as MoneyValue } from '@/lib/types';
+import type { Film, FilmFacts, Language, Money as MoneyValue } from '@/lib/types';
 
 const other = (c: Currency): Currency => (c === 'INR' ? 'USD' : 'INR');
 
 // ---------- /movie/[slug]/ ----------
 
-export const movieParams = () => films.map((f) => ({ slug: f.slug }));
+// Upcoming films (no figure yet) get their countdown page at the same address: src/views/upcoming.tsx.
+export const movieParams = () => [...films, ...upcoming].map((f) => ({ slug: f.slug }));
 
 function movieContent(slug: string) {
   const f = filmBySlug.get(slug);
@@ -49,6 +52,7 @@ function movieContent(slug: string) {
 }
 
 export function movieMetadata(slug: string): Metadata {
+  if (isUpcomingSlug(slug)) return upcomingMovieMetadata(slug);
   const { f, native, yearRank, lastDay } = movieContent(slug);
   const yearText = f.year ? ` (${f.year})` : '';
   const primary = formatMoney(f.gross, native);
@@ -111,7 +115,107 @@ function Block({ id, title, action, children }: { id: string; title: string; act
 /** Posters you supply are served from this site (a path); structured data needs a full address. */
 const absoluteUrl = (u: string) => (u.startsWith('/') ? `${SITE.url}${u}` : u);
 
+/**
+ * The questions people search about a film, answered from its own figures. Shown at the foot of its page and
+ * repeated as FAQPage structured data. A question is left out when the film has no data to answer it.
+ * Answers are HTML: every name and title is escaped.
+ */
+function filmFaq({ f, native, showing, split, recs, yearList, yearRank, lang, langRank, chartRank, adjusted }: {
+  f: Film; native: Currency; showing: boolean; split: Markets | null; recs: Records;
+  yearList: Film[]; yearRank: number; lang: Language | undefined; langRank: number; chartRank: number | null;
+  adjusted: Adjusted | null;
+}): { q: string; a: string }[] {
+  const g = f.gross;
+  const t = escapeHtml(f.title);
+  const fm = (m: MoneyValue, cur: Currency = native) => escapeHtml(formatMoney(m, cur));
+  const both = (m: MoneyValue) => `${fm(m)} (${fm(m, other(native))})`;
+  const who = (name: string) => {
+    const p = personFor(name);
+    return p ? `<a href="/person/${p.slug}/">${escapeHtml(name)}</a>` : escapeHtml(name);
+  };
+  const worldwide = g.scope === 'worldwide' ? ' worldwide' : '';
+  const collected = showing ? 'has collected' : 'collected';
+  const out: { q: string; a: string }[] = [];
+
+  out.push({
+    q: `What is the box office collection of ${f.title}?`,
+    a: `<p>${t}${f.year ? ` (${f.year})` : ''} ${collected} ${g.approx ? 'an estimated ' : ''}${both(g)}${worldwide || ' at the box office'}${
+      g.asOf ? `, as of ${formatDate(g.asOf)}` : ''}.${showing ? ' It is still in cinemas, so the total is still going up.' : ''}</p>`,
+  });
+
+  if (split?.indiaNet || split?.indiaGross) {
+    const india = split.indiaNet
+      ? `${fm(split.indiaNet, 'INR')} net${split.indiaGross ? ` (${fm(split.indiaGross, 'INR')} gross)` : ''}`
+      : `${fm(split.indiaGross!, 'INR')} gross`;
+    out.push({
+      q: `How much has ${f.title} collected in India?`,
+      a: `<p>${t} ${collected} ${india} in India${split.overseas ? ` and ${fm(split.overseas, 'INR')} overseas` : ''}. Net is what is left of the gross after the tax on tickets: <a href="/guides/gross-net-share/">gross, net and share explained</a>.</p>`,
+    });
+  }
+
+  if (recs.openingDay) {
+    const big = recs.biggestDay;
+    out.push({
+      q: `How much did ${f.title} collect on its opening day?`,
+      a: `<p>${t} collected about ${both(recs.openingDay.added)}${worldwide} on its opening day, ${formatDate(recs.openingDay.date)}.${
+        big ? ` Its biggest day${showing ? ' so far' : ''} was day ${big.day} (${formatDate(big.date)}), with ${fm(big.added)}.` : ''}</p>`,
+    });
+  }
+
+  if (f.budget) {
+    const ratio = g.usd / f.budget.usd;
+    const gross = `Its gross${showing ? ' so far' : ''}, ${fm(g)},`;
+    const judged = '<a href="/guides/hit-or-flop-budget/">how hits and flops are judged</a>';
+    out.push({
+      q: `What is the budget of ${f.title}?`,
+      a: `<p>${t} was made on a reported budget of ${both(f.budget)}. ${ratio >= 1
+        ? `${gross} is about ${times(ratio)} times its budget. Cinemas keep part of the gross and marketing costs come on top, so that alone does not make it a hit: ${judged}.`
+        : `${gross} is about ${Math.round(ratio * 100)}% of its budget. More on ${judged}.`}</p>`,
+    });
+  }
+
+  if (f.year && yearRank && yearList.length > 1) {
+    out.push({
+      q: `Where does ${f.title} rank among ${f.year} films?`,
+      a: `<p>${t} is <a href="/year/${f.year}/">#${yearRank} of ${yearList.length} films from ${f.year}</a> on ${escapeHtml(SITE.name)}, ranked by worldwide gross.${
+        lang && langRank ? ` Among <a href="/language/${lang.slug}/">${escapeHtml(lang.name)} films</a> it is #${langRank.toLocaleString('en-IN')} of all time.` : ''}${
+        chartRank ? ` It is also #${chartRank} on the <a href="/top/">all-time worldwide chart</a>.` : ''}</p>`,
+    });
+  }
+
+  if (worthShowing(adjusted)) {
+    out.push({
+      q: `What is ${f.title}’s collection adjusted for inflation?`,
+      a: `<p>In ${CPI_YEAR} prices, ${t}’s gross of ${fm(g)} is worth about ${fm(adjusted.money)}. <a href="/guides/inflation-and-all-time-records/">How the adjustment works</a>.</p>`,
+    });
+  }
+
+  if (f.date && !f.date.endsWith('-01-01')) {
+    const details = [
+      f.languages.length ? `is in ${escapeHtml(joinNames(f.languages))}` : '',
+      f.runtime ? `runs ${f.runtime} minutes` : '',
+    ].filter(Boolean);
+    out.push({
+      q: `When was ${f.title} released?`,
+      a: `<p>${t} was released on ${formatDate(f.date)}.${details.length ? ` It ${details.join(' and ')}.` : ''}</p>`,
+    });
+  }
+
+  const stars = f.starring.slice(0, 4);
+  if (f.directors.length || stars.length) {
+    const cast = joinNames(stars.map(who));
+    out.push({
+      q: f.directors.length && stars.length ? `Who directed ${f.title}, and who stars in it?`
+        : f.directors.length ? `Who directed ${f.title}?` : `Who stars in ${f.title}?`,
+      a: `<p>${t} ${f.directors.length ? `is directed by ${joinNames(f.directors.map(who))}${stars.length ? ` and stars ${cast}` : ''}` : `stars ${cast}`}.</p>`,
+    });
+  }
+
+  return out;
+}
+
 export function MoviePage({ slug }: { slug: string }) {
+  if (isUpcomingSlug(slug)) return <UpcomingMoviePage slug={slug} />;
   const { f, native, yearList, yearRank, lang, crumbs, wiki } = movieContent(slug);
   const g = f.gross;
   const langRank = lang ? lang.list.indexOf(f) + 1 : 0;
@@ -222,7 +326,7 @@ export function MoviePage({ slug }: { slug: string }) {
     site: SITE.name, host,
   };
 
-  const jsonld = [{
+  const jsonld: object[] = [{
     '@context': 'https://schema.org', '@type': 'Movie', name: f.title, url: `${SITE.url}/movie/${f.slug}/`,
     ...(posterUrl(f, 500) && { image: absoluteUrl(posterUrl(f, 500)) }),
     ...(f.date && { datePublished: f.date }),
@@ -233,6 +337,8 @@ export function MoviePage({ slug }: { slug: string }) {
     ...(f.starring.length && { actor: f.starring.map((name) => ({ '@type': 'Person', name })) }),
     sameAs: [wiki, `https://www.wikidata.org/wiki/${f.id}`, f.imdb && `https://www.imdb.com/title/${f.imdb}/`].filter(Boolean),
   }, crumbsLd(crumbs)];
+  const faq = filmFaq({ f, native, showing, split, recs, yearList, yearRank, lang, langRank, chartRank: reference?.rank ?? null, adjusted });
+  if (faq.length) jsonld.push(faqLd(faq));
 
   const gross = { usd: g.usd, inr: g.inr };
   return (
@@ -248,9 +354,10 @@ export function MoviePage({ slug }: { slug: string }) {
             {poster ? <Poster film={f} eager /> : null}
             <div className="board-title">
               <p className="board-kicker">
-                {showing && release ? <><span className="live-dot" aria-hidden="true" /><RunDay release={release} initial={runDay(release, BUILD_TIME)} /> in cinemas</> : 'Box office'}
+                {showing && release ? <><span className="live-dot" aria-hidden="true" /><RunDay release={release} initial={runDay(release, BUILD_TIME)} /> in cinemas</> : 'Lifetime collection'}
               </p>
-              <h1>{f.title}</h1>
+              {/* "<film> box office collection" is how people search for a film's figures. */}
+              <h1>{f.title} <span className="h1-tail">box office collection</span></h1>
               {meta.length || f.rating ? (
                 <p className="board-sub">
                   {f.rating ? <ImdbRating value={f.rating.value} votes={f.rating.votes} imdb={f.imdb} /> : null}
@@ -384,6 +491,8 @@ export function MoviePage({ slug }: { slug: string }) {
         </Block>
       ) : null}
 
+      {faq.length ? <FaqBlock items={faq} heading={`${f.title}: questions and answers`} /> : null}
+
       <aside className="fix-it">
         <div>
           <h2>Number looks wrong?</h2>
@@ -415,38 +524,51 @@ function personContent(slug: string) {
   const total = p.films.reduce((s, f) => ({ usd: s.usd + f.gross.usd, inr: s.inr + f.gross.inr }), { usd: 0, inr: 0 });
   const native: Currency = p.films.filter(isIndian).length > p.films.length / 2 ? 'INR' : 'USD';
   const crumbs: Crumb[] = [['Home', '/'], [p.name, `/person/${p.slug}/`]];
-  return { p, total, native, crumbs, photo: photoFor(p.name) };
+  // Their films still to come (cast or director), soonest first: people search for "<name> upcoming movies".
+  const soon = upcoming.filter((f) => [...f.starring, ...f.directors].some((n) => slugify(n) === p.slug));
+  return { p, total, native, crumbs, soon, photo: photoFor(p.name) };
 }
 
 export function personMetadata(slug: string): Metadata {
-  const { p, total, native } = personContent(slug);
+  const { p, total, native, soon } = personContent(slug);
+  const next = soon[0];
   return pageMetadata({
     lang: 'en',
     path: `/person/${p.slug}/`,
-    title: `${p.name} box office collection: all ${p.films.length} films ranked | ${SITE.name}`,
-    description: `${p.name}'s films ranked by worldwide box office collection. ${p.films.length} films, ${formatMoney(total, native)} in total. Biggest: ${p.films[0].title}.`,
+    title: `${p.name} movies: box office collection of all ${p.films.length} films | ${SITE.name}`,
+    description: `${p.name} movies list ranked by worldwide box office collection: ${p.films.length} films, ${formatMoney(total, native)} in total. Biggest hit: ${p.films[0].title}.${
+      next ? ` Upcoming: ${next.title}, in cinemas ${formatDate(next.release)}.` : ''}`,
   });
 }
 
 export function PersonPage({ slug }: { slug: string }) {
-  const { p, total, native, crumbs, photo } = personContent(slug);
+  const { p, total, native, crumbs, soon, photo } = personContent(slug);
   const role = p.roles.has('actor') && p.roles.has('director') ? 'actor and director' : p.roles.has('director') ? 'director' : 'actor';
   return (
     <PageShell lang="en">
       <JsonLd data={[
-        crumbsLd(crumbs), itemListLd(p.films, `${p.name} films by box office collection`),
+        crumbsLd(crumbs), itemListLd(p.films, `${p.name} movies by box office collection`),
         { '@context': 'https://schema.org', '@type': 'Person', name: p.name, url: `${SITE.url}/person/${p.slug}/`, ...(photo && { image: photo.url }) },
       ]} />
       <Crumbs lang="en" items={crumbs} />
       <div className="page-head person-head">
         <Avatar name={p.name} photo={photo} size="lg" eager />
         <div>
-          <h1>{p.name}</h1>
+          <h1>{p.name} <span className="h1-tail">movies</span></h1>
           <p>{p.films.length} films as {role}, <Money {...total} native={native} /> worldwide in total. Biggest so far: <FilmLink film={p.films[0]} />.</p>
           {photo?.credit ? <p className="photo-credit">Photo: <PhotoCredit credit={photo.credit} /></p> : null}
         </div>
       </div>
-      <section className="list-section"><RankList list={p.films} native={native} /></section>
+      {soon.length ? (
+        <section aria-labelledby="p-soon">
+          <h2 id="p-soon">{p.name} upcoming movies</h2>
+          <ol className="up-cards">{soon.map((f) => <UpcomingCard key={f.id} film={f} lang="en" />)}</ol>
+        </section>
+      ) : null}
+      <section className="list-section" aria-labelledby={soon.length ? 'p-all' : undefined}>
+        {soon.length ? <h2 id="p-all">Box office collection of every film</h2> : null}
+        <RankList list={p.films} native={native} />
+      </section>
     </PageShell>
   );
 }

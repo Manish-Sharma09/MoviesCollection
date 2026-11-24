@@ -168,9 +168,9 @@ export function YearPage({ lang, year }: { lang: Lang; year: string }) {
       <div className="page-head"><h1>{p.h1}</h1><Html as="p" html={p.intro} /></div>
       <div className="columns">
         {ind.length ? (
-          <section aria-labelledby="y-in"><h2 id="y-in">{ui.indianFilms}</h2><RankList list={ind.slice(0, 100)} native="INR" /></section>
+          <section aria-labelledby="y-in"><h2 id="y-in">{ui.yearIndian(y)}</h2><RankList list={ind.slice(0, 100)} native="INR" /></section>
         ) : null}
-        <section aria-labelledby="y-all"><h2 id="y-all">{ui.allFilms}</h2><RankList list={list.slice(0, 100)} native="USD" /></section>
+        <section aria-labelledby="y-all"><h2 id="y-all">{ui.yearAll(y)}</h2><RankList list={list.slice(0, 100)} native="USD" /></section>
       </div>
     </PageShell>
   );
@@ -185,7 +185,7 @@ function languageContent(lang: Lang, slug: string) {
   if (!l) throw new Error(`Unknown language: ${slug}`);
   const name = langName(lang, l);
   const crumbs: Crumb[] = [[CONTENT[lang].ui.home, localePath(lang, '/')], [name, localePath(lang, `/language/${slug}/`)]];
-  return { l, crumbs, p: CONTENT[lang].pages.language(name, l.list.length) };
+  return { l, crumbs, p: CONTENT[lang].pages.language(name, l.list.length, l.slug) };
 }
 
 export const languageMetadata = (lang: Lang, slug: string) => meta(lang, `/language/${slug}/`, languageContent(lang, slug).p);

@@ -163,7 +163,7 @@ export function SearchBox({ variant = 'header', id: fixedId, label, placeholder 
           <li key={r.href} role="option" id={`${listId}-${i}`} aria-selected={open && i === active}>
             <a href={r.href} tabIndex={-1}>
               <span>{r.label} <small>{r.sub}</small></span>
-              <small>{r.person ? null : <Money usd={r.usd!} inr={r.inr!} native={r.native} />}</small>
+              <small>{r.person ? null : r.usd ? <Money usd={r.usd} inr={r.inr!} native={r.native} /> : text.upcoming}</small>
             </a>
           </li>
         )) : open ? <li className="empty">{empty}</li> : null}

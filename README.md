@@ -1,4 +1,4 @@
-# Collection Board
+# LiveGross
 
 A free website showing the box office collection of Indian and international films: live estimates for films in cinemas, day-wise collection, worldwide gross, budget, all-time rank, year and language charts, actor/director pages and the ₹100 / ₹500 / ₹1,000 crore clubs. In English, with the main pages also in Hindi (`/hi/`).
 
@@ -39,19 +39,19 @@ npm run deploy      # upload out/ to Cloudflare Pages by hand (needs `npx wrangl
 ## Put it online (one-time setup)
 
 1. Create a free GitHub account and push this folder to a new **public** repository. Scheduled runs are free for public repos.
-2. Create a free Cloudflare account. The workflow creates the Pages project (`collection-board`) on its first run.
+2. Create a free Cloudflare account. The workflow creates the Pages project (`livegross`) on its first run.
 3. In Cloudflare, create an API token with the **Cloudflare Pages: Edit** permission and copy your Account ID.
 4. In the GitHub repo, open **Settings → Secrets and variables → Actions** and add:
    - Secrets: `CLOUDFLARE_API_TOKEN`, `CLOUDFLARE_ACCOUNT_ID`
    - Variables (all optional):
-     - `SITE_URL`: your address, e.g. `https://yourdomain.com` (default `https://collection-board.pages.dev`)
+     - `SITE_URL`: your address, e.g. `https://yourdomain.com` (default `https://livegross.pages.dev`)
      - `SITE_NAME`: shown in the logo, titles and legal pages
      - `GA_ID`: Google Analytics 4 measurement ID (`G-XXXXXXX`). Without it, no analytics code is added.
      - `ADSENSE_CLIENT`, `ADSENSE_SLOT`: Google AdSense, see "Ads" below. Without them, no ad code is added.
      - `CONTACT_EMAIL`: shown on the contact and legal pages. Defaults to `contact@yourdomain.com` once `SITE_URL` is a custom domain.
-     - `SITE_OWNER`: the person or business that runs the site, named on the about page and as the author of the guides. Without it they say "an independent project run from India" and "the Collection Board team" (with your `SITE_NAME`).
-     - `CF_PROJECT`: Pages project name (default `collection-board`)
-     - `CONTACT_UA`: e.g. `CollectionBoard/1.0 (https://yourdomain.com)` so Wikipedia knows who is fetching
+     - `SITE_OWNER`: the person or business that runs the site, named on the about page and as the author of the guides. Without it they say "an independent project run from India" and "the LiveGross team" (with your `SITE_NAME`).
+     - `CF_PROJECT`: Pages project name (default `livegross`)
+     - `CONTACT_UA`: e.g. `LiveGross/1.0 (https://yourdomain.com)` so Wikipedia knows who is fetching
 5. Open the **Actions** tab, choose **Update data and deploy** and press **Run workflow**. After that it runs by itself every day at 06:00 IST.
 
 ### When you add your own domain

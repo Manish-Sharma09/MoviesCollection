@@ -1,11 +1,11 @@
 // Site settings, all optional, set as GitHub Actions variables (or in the shell for a local build).
 // Read at build time only.
 
-const siteUrl = (process.env.SITE_URL || 'https://collection-board.pages.dev').replace(/\/$/, '');
+const siteUrl = (process.env.SITE_URL || 'https://livegross.pages.dev').replace(/\/$/, '');
 const host = new URL(siteUrl).hostname;
 
 export const SITE = {
-  name: process.env.SITE_NAME || 'Collection Board',
+  name: process.env.SITE_NAME || 'LiveGross',
   url: siteUrl,
   host,
   onPagesDev: host.endsWith('.pages.dev'),

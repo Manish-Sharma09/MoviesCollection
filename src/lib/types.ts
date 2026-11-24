@@ -57,11 +57,48 @@ export interface Film {
   live?: LiveInfo;
 }
 
+/**
+ * A film due in cinemas in the next 60 days, or out in the last week with no figure reported yet
+ * (scripts/merge.mjs). It gets a page at /movie/<slug>/ that counts down to release; once its first
+ * figure is reported it moves to `films` and the same address becomes its box office page.
+ */
+export interface UpcomingFilm {
+  id: string;
+  slug: string;
+  title: string;
+  year: number | null;
+  indian: boolean;
+  /** The cinema release (YYYY-MM-DD) counted down to: the first of its Wikidata dates in the window. */
+  release: string;
+  /** The earliest date Wikidata knows, often a festival premiere. */
+  date: string | null;
+  countries: string[];
+  languages: string[];
+  directors: string[];
+  starring: string[];
+  runtime: number | null;
+  imdb: string | null;
+  enwiki: string;
+  budget: Amount | null;
+  distributors: string[];
+  /** Wikipedia language editions with an article on the film: a rough measure of how widely it is known. */
+  sitelinks: number;
+}
+
+/** An advance booking (ticket pre-sales) amount reported in a film's Wikipedia article. */
+export interface Advance extends Money {
+  /** The article gives it as a floor or an estimate ("over ₹20 crore"). */
+  approx: boolean;
+  /** The sentence it was read from. */
+  quote: string;
+}
+
 export interface MoviesFile {
   generatedAt: string;
   sources: { wikipedia?: string };
   rates: { date: string; inrPerUsd: number };
   films: Film[];
+  upcoming?: UpcomingFilm[];
 }
 
 /**
@@ -129,6 +166,8 @@ export interface Stats {
   rate: number;
   rateDate: string;
   topIndian: Film | undefined;
+  /** The five highest-grossing Hindi (Bollywood) films, for the FAQ. */
+  topBollywood: Film[];
   topWorld: ChartFilm | undefined;
   worldwideCount: number;
   /** How many of the chart's places come from Wikipedia's highest-grossing list (the top of the chart). */

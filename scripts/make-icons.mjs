@@ -8,7 +8,7 @@ import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { fileURLToPath } from 'node:url';
 
-const SITE_NAME = process.env.SITE_NAME || 'Collection Board';
+const SITE_NAME = process.env.SITE_NAME || 'LiveGross';
 const OUT = fileURLToPath(new URL('../public/', import.meta.url));
 const CHROME = process.env.CHROME || '/Applications/Google Chrome.app/Contents/MacOS/Google Chrome';
 

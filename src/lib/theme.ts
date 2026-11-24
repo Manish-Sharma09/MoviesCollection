@@ -13,4 +13,13 @@ const theme = `try{var t=localStorage.getItem('${THEME_KEY}');if(t==='light'||t=
 // removed so nothing ever stays hidden.
 const motion = `try{if(matchMedia('(prefers-reduced-motion: no-preference)').matches){d.classList.add('motion');setTimeout(function(){if(!d.classList.contains('motion-ready'))d.classList.remove('motion')},4000)}}catch(e){}`;
 
-export const THEME_SCRIPT = `(function(){var d=document.documentElement;${theme}${motion}})()`;
+// The intro (src/components/Intro.tsx): shown on the first page a visitor opens in a browser session, only
+// when motion is allowed and Data Saver is off. `preload` on <html> makes the overlay visible from the very
+// first paint; the client takes it away (and fires INTRO_DONE_EVENT) once the page has loaded. If the
+// scripts never run, this timer removes it anyway.
+export const INTRO_KEY = 'lg.intro';
+export const INTRO_DONE_EVENT = 'lg:intro-done';
+const INTRO_FAILSAFE_MS = 7000;
+const intro = `try{var c=navigator.connection;if(matchMedia('(prefers-reduced-motion: no-preference)').matches&&!(c&&c.saveData)&&!sessionStorage.getItem('${INTRO_KEY}')){sessionStorage.setItem('${INTRO_KEY}','1');d.classList.add('preload');setTimeout(function(){if(d.classList.contains('preload')){d.classList.remove('preload');d.dataset.intro='done';dispatchEvent(new Event('${INTRO_DONE_EVENT}'))}},${INTRO_FAILSAFE_MS})}}catch(e){}`;
+
+export const THEME_SCRIPT = `(function(){var d=document.documentElement;${theme}${motion}${intro}})()`;

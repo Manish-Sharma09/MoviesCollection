@@ -1,7 +1,7 @@
 'use client';
 // Live estimates for films in cinemas. The static HTML shows the last reported figure; after
 // hydration these components add the estimate for the time since (src/lib/live.ts), moving in
-// 5-minute steps and marked with a red dot (.is-live). Outside the live window they show the
+// 1-minute steps and marked with a red dot (.is-live). Outside the live window they show the
 // reported figure, exactly as rendered.
 import { useState, type ReactNode } from 'react';
 import { CLIENT_TEXT } from '@/content/client-text';
@@ -118,7 +118,7 @@ export function StatMain({ gross, native, label, range }: StatProps) {
   );
 }
 
-/** A film in cinemas: the live estimate, today's takings, and a ring counting down to the next 5-minute step. */
+/** A film in cinemas: the live estimate, today's takings, and a ring counting down to the next 1-minute step. */
 export function LiveStatMain({ live, ...props }: StatProps & { live: LiveInfo }) {
   const { gross, native } = props;
   const lang = useLang();

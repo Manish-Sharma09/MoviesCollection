@@ -1,9 +1,9 @@
 // Polite HTTP helpers for public data sources (Wikidata, Wikipedia, exchange rates).
 // Wikimedia asks every client to send a descriptive User-Agent. Set CONTACT_UA to
-// something like "MovieCollectionBot/1.0 (https://your-site.example)" once the site is live.
+// something like "LiveGrossBot/1.0 (https://your-site.example)" once the site is live.
 
 export const USER_AGENT =
-  process.env.CONTACT_UA || 'MovieCollectionBot/0.1 (open box office data site)';
+  process.env.CONTACT_UA || 'LiveGrossBot/0.1 (open box office data site)';
 
 const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
 

@@ -99,3 +99,40 @@ export function marketFigures(section) {
   }
   return Object.fromEntries(Object.entries(found).map(([k, { size, ...v }]) => [k, v]));
 }
+
+// ---------- advance booking ----------
+// Before and around release, articles report ticket pre-sales: "The film collected ₹35 crore from advance bookings
+// for its opening day", "It made $40 million in presales". Only an amount inside such a sentence counts.
+const ADVANCE = /\b(?:advance(?:d)?[- ](?:booking|bookings|sales|ticket sales|ticketing)|pre-?sales?|presales|pre-?bookings?)\b/i;
+// Money that is not ticket sales (rights deals, budgets, distributor shares) in a sentence that also mentions pre-sales.
+const NOT_TICKETS = /\b(?:share|profit|budget|cost|distribution rights|rights|deal|satellite|digital|ott|streaming|music|pre-release business|valued)\b/i;
+// A record sentence ("breaking the first-day presale record set by…") is about one venue or day, not the film's advance total.
+const ADV_RECORD = /\bbreak(?:ing|s)?\b[^.]{0,40}\brecords?\b|\brecords?\b[^.]{0,30}\b(?:set|held) by\b|\bfrom (?:a single|one) (?:cinema|theatre|theater|screen|venue)\b/i;
+const FLOOR = /\b(?:over|more than|above|upwards of|crossed|crossing|exceed(?:ed|ing)?|nearly|almost|around|about|approximately|close to|estimated)\s*$/i;
+
+/**
+ * The advance booking (ticket pre-sales) amount an article reports: the largest one, since pre-sales only grow,
+ * with `approx` when the article gives it as a floor or an estimate ("over ₹20 crore"), and the sentence it came
+ * from. Amounts stay in the currency they were written in ({ inr } or { usd }). Null when none is reported.
+ */
+export function advanceFigure(wikitext) {
+  let best = null;
+  for (const sentence of plainText(wikitext)) {
+    if (!ADVANCE.test(sentence) || COMPARISON.test(sentence) || ADV_RECORD.test(sentence) || NOT_TICKETS.test(sentence)) continue;
+    for (const m of sentence.matchAll(AMOUNT)) {
+      const a = value(m);
+      const n = a.inr ?? a.usd;
+      if (!n || n < 1e5) continue;
+      // The amount has to sit in the same stretch of the sentence as the words about advance sales.
+      const around = sentence.slice(Math.max(0, m.index - 110), m.index + m[0].length + 110);
+      if (!ADVANCE.test(around)) continue;
+      const size = a.inr ?? a.usd * 90;
+      if (!best || size > best.size) {
+        best = { ...a, size, approx: FLOOR.test(sentence.slice(Math.max(0, m.index - 24), m.index)), quote: sentence.slice(0, 240) };
+      }
+    }
+  }
+  if (!best) return null;
+  const { size, ...rest } = best;
+  return rest;
+}

@@ -20,8 +20,8 @@ export const DECAY = 0.94;
 // Stop estimating when the last report is this old.
 export const STALE_AFTER = 4 * DAY;
 
-// The estimate moves in 5-minute steps, like a tracker's update cycle.
-export const STEP = 5 * 60_000;
+// The estimate moves in 1-minute steps, like a tracker's update cycle.
+export const STEP = 60_000;
 
 /** Midnight (UTC ms) of an IST calendar date "YYYY-MM-DD", i.e. 00:00 IST. */
 export const istMidnight = (date: string): number => Date.parse(`${date}T00:00:00Z`) - IST_OFFSET;
@@ -70,7 +70,7 @@ export interface LiveState {
   perHour: { usd: number; inr: number };
 }
 
-/** The live total at `now` (already rounded to a 5-minute step), or null outside the live window. */
+/** The live total at `now` (already rounded to a 1-minute step), or null outside the live window. */
 export function liveState(live: LiveInput, now: number): LiveState | null {
   const reportEnd = istMidnight(live.coveredThrough) + DAY;
   if (!Number.isFinite(reportEnd) || now < reportEnd || now - reportEnd > STALE_AFTER) return null;

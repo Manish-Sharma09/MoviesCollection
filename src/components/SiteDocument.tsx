@@ -11,6 +11,7 @@ import { CONTENT, type Lang } from '@/lib/i18n';
 import { ADSENSE_CLIENT, GA_ID, SITE } from '@/lib/site';
 import { THEME_COLORS, THEME_SCRIPT } from '@/lib/theme';
 import { LangProvider, PressFeedback } from './client/basics';
+import { Intro } from './Intro';
 
 export const siteMetadata: Metadata = {
   metadataBase: new URL(SITE.url),
@@ -61,6 +62,8 @@ export function SiteDocument({ lang, children }: { lang: Lang; children: ReactNo
       <body>
         {/* Runs before the page paints, so a saved theme never flashes the other one. */}
         <script dangerouslySetInnerHTML={{ __html: THEME_SCRIPT }} />
+        {/* First visit of a session only (the script above decides); hidden otherwise. */}
+        <Intro />
         <PressFeedback />
         <LangProvider lang={lang}>{children}</LangProvider>
         {GA_ID ? (

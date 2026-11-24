@@ -15,15 +15,16 @@
     "fetch:live": "WIKI_MAX_REFRESH=0 node scripts/fetch-wikipedia.mjs && node scripts/fetch-history.mjs",
     "merge": "node scripts/merge.mjs",
     "build": "node scripts/merge.mjs && npm run fetch:art && next build && node scripts/postbuild.mjs",
-    "fetch:art": "node scripts/fetch-posters.mjs && node scripts/fetch-people.mjs && node scripts/fetch-boxoffice.mjs && node scripts/fetch-cpi.mjs --if-missing",
+    "fetch:art": "node scripts/fetch-posters.mjs && node scripts/fetch-people.mjs && node scripts/fetch-boxoffice.mjs && node scripts/fetch-pageviews.mjs && node scripts/fetch-cpi.mjs --if-missing",
     "build:site": "next build && node scripts/postbuild.mjs",
     "update": "npm run fetch && npm run build",
     "preview": "node scripts/serve.mjs",
     "lint": "eslint",
     "typecheck": "tsc --noEmit",
     "icons": "node scripts/make-icons.mjs",
-    "deploy": "npx wrangler@4 pages deploy out --project-name=${CF_PROJECT:-collection-board} --branch=main",
-    "test": "node --test scripts/*.test.mjs"
+    "deploy": "npx wrangler@4 pages deploy out --project-name=${CF_PROJECT:-livegross} --branch=main",
+    "test": "node --test scripts/*.test.mjs",
+    "fetch:pageviews": "node scripts/fetch-pageviews.mjs"
   },
   "dependencies": {
     "@gsap/react": "^2.1.2",

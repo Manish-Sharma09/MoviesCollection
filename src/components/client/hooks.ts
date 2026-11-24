@@ -117,6 +117,6 @@ const subscribeClock = (l: Listener) => {
 /** Current time, ticking every second; null while the page hydrates. */
 export const useNow = () => useSyncExternalStore(subscribeClock, clock.get, () => null);
 
-/** Start of the current 5-minute step; only changes when a new step begins. */
+/** Start of the current 1-minute step; only changes when a new step begins. */
 export const useLiveStep = () =>
   useSyncExternalStore(subscribeClock, () => Math.floor(clock.get() / STEP) * STEP, () => null);

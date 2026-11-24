@@ -123,9 +123,9 @@ export const GUIDES: Guide[] = [
     title: 'How our live box office estimate works',
     description: 'The exact model behind the live totals on this site: the daily base, weekday weights, the show-time curve, and when the estimate stops.',
     published: PUBLISHED,
-    updated: PUBLISHED,
+    updated: '2026-11-24',
     related: ['reading-day-wise-collection', 'why-box-office-figures-differ', 'gross-net-share'],
-    body: ({ s }) => `<p>Box office figures are reported about once a day, usually the morning after. In between, the live totals on ${esc(s.site)} move every five minutes. Those moving numbers are estimates that we calculate, and this guide explains exactly how, so you can judge how far to trust them.</p>
+    body: ({ s }) => `<p>Box office figures are reported about once a day, usually the morning after. In between, the live totals on ${esc(s.site)} move every minute. Those moving numbers are estimates that we calculate, and this guide explains exactly how, so you can judge how far to trust them.</p>
 
 <h2>Step 1: the last reported total</h2>
 <p>For every film in cinemas we read the history of its English Wikipedia article and take the worldwide total that stood at the end of each day, India time. A report edited after 8 pm is taken to cover that day; one edited earlier is taken to cover the day before, because morning updates usually report the previous day's business. New reports are read every three hours. The result is the day-wise table on each film page, and its last row is where the estimate starts.</p>
@@ -156,7 +156,7 @@ export const GUIDES: Guide[] = [
 <li>80% by 9 pm</li>
 <li>all of it by midnight</li>
 </ul>
-<p>The total moves along that curve in five-minute steps, which is what you see ticking on the <a href="/live/">live page</a> and on film pages.</p>
+<p>The total moves along that curve in one-minute steps, which is what you see ticking on the <a href="/live/">live page</a> and on film pages.</p>
 
 <h2>A worked example</h2>
 <p>Say a film's base is ₹10 crore and its last report covers Friday. Saturday's estimate for the full day is ₹10 crore × 1.35 × 0.94, about ₹12.7 crore. At 6 pm on Saturday half of that has come in, so the live total is Friday's reported total plus about ₹6.3 crore. When Saturday's real figure is reported, the estimate is dropped and starts again from the new total.</p>

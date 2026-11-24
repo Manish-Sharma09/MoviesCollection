@@ -6,7 +6,8 @@ import { join } from 'node:path';
 import { hindiLanguageName, slugify, type Currency } from './format';
 import { ADSENSE_CLIENT, CONTACT_EMAIL, GA_ID, SITE } from './site';
 import type {
-  ChartFilm, CinemaBoard, CinemaEntry, Club, ClubSlug, DailyRow, Film, Language, Money, MoviesFile, Person, RankItem, Stats,
+  Advance, ChartFilm, CinemaBoard, CinemaEntry, Club, ClubSlug, DailyRow, Film, Language, Money, MoviesFile, Person, RankItem, Stats,
+  UpcomingFilm,
 } from './types';
 import { readChartSync } from './worldwide-chart';
 
@@ -23,6 +24,8 @@ const data = readJson<MoviesFile>('data/movies.json');
 
 /** Every film, sorted by worldwide gross, biggest first. */
 export const films: Film[] = data.films;
+/** Films due in cinemas soon, or just out with no figure yet; soonest first (scripts/merge.mjs). */
+export const upcoming: UpcomingFilm[] = data.upcoming ?? [];
 export const RATE = data.rates;
 /** When Wikipedia was last read (ISO time), shown on the home page. */
 export const sourcesCheckedAt: string | null = data.sources?.wikipedia ?? null;
@@ -57,7 +60,7 @@ function wikimediaAt(url: string, originalWidth: number | undefined, px: number)
 type WikiPoster = { thumb?: string; width?: number; original?: string };
 const wikiPages = readJson<{ pages?: Record<string, WikiPoster> }>('data/raw/posters.json', {}).pages || {};
 const wikiPosterById = new Map<string, WikiPoster>();
-for (const f of films) {
+for (const f of [...films, ...upcoming]) {
   const p = f.enwiki ? wikiPages[f.enwiki] : undefined;
   if (p?.thumb && WIKIMEDIA.test(p.thumb)) wikiPosterById.set(f.id, p);
 }
@@ -156,9 +159,10 @@ export function photoFor(name: string): Photo | null {
 // 1.03–1.4× the net, overseas 2–85%, and India plus overseas within 20% of the worldwide total.
 
 type TextFigure = { inr?: number; usd?: number };
-const boxText = readJson<{ pages?: Record<string, { indiaNet?: TextFigure; indiaGross?: TextFigure; overseas?: TextFigure }> }>(
-  'data/raw/boxoffice.json', {},
-).pages || {};
+type TextAdvance = TextFigure & { approx?: boolean; quote?: string };
+const boxText = readJson<{ pages?: Record<string, {
+  indiaNet?: TextFigure; indiaGross?: TextFigure; overseas?: TextFigure; advance?: TextAdvance | null;
+}> }>('data/raw/boxoffice.json', {}).pages || {};
 
 export interface Markets { indiaNet?: Money; indiaGross?: Money; overseas?: Money }
 
@@ -183,6 +187,27 @@ export function marketsOf(f: Film): Markets | null {
   if (!net && !gross && !overseas) return null;
   return { ...(net && { indiaNet: net }), ...(gross && { indiaGross: gross }), ...(overseas && { overseas }) };
 }
+
+/** The advance booking (ticket pre-sales) amount the film's Wikipedia article reports, or null. */
+export function advanceOf(f: { enwiki: string | null }): Advance | null {
+  const a = f.enwiki ? boxText[f.enwiki]?.advance : null;
+  const money = asMoney(a ?? undefined);
+  return a && money ? { ...money, approx: Boolean(a.approx), quote: a.quote ?? '' } : null;
+}
+
+// ---------- upcoming films ----------
+
+/** Today in India (YYYY-MM-DD) when the site was built. */
+const TODAY_IST = new Date(Date.now() + 5.5 * 3_600_000).toISOString().slice(0, 10);
+export const upcomingBySlug = new Map(upcoming.map((f) => [f.slug, f]));
+/** Already in cinemas (release day or later) but no figure reported yet. */
+export const isOut = (f: UpcomingFilm) => f.release <= TODAY_IST;
+/** Not out yet, soonest first. */
+export const comingSoon = upcoming.filter((f) => !isOut(f));
+/** Out in the last week, no figure yet, newest first. */
+export const justOut = upcoming.filter(isOut).reverse();
+/** The best-known upcoming films first (Wikipedia language editions), for short lists like the home page. */
+export const notableFirst = (list: UpcomingFilm[]) => [...list].sort((a, b) => b.sitelinks - a.sitelinks || a.release.localeCompare(b.release));
 
 // ---------- all-time worldwide chart ----------
 // The top 50 come from Wikipedia's "List of highest-grossing films" (src/lib/worldwide-chart.ts); every
@@ -284,8 +309,6 @@ export const clubBySlug = new Map(CLUBS.map((c) => [c.slug, c]));
 
 const isExactDate = (f: Film) => Boolean(f.date) && !f.date!.endsWith('-01-01');
 const ageDays = (f: Film) => (TODAY - Date.parse(`${f.date}T00:00:00Z`)) / DAY_MS;
-/** Films released in the last 60 days (exact dates only), biggest first. */
-export const nowShowing = films.filter((f) => isExactDate(f) && ageDays(f) >= 0 && ageDays(f) < 60).slice(0, 12);
 
 /** Day-wise rows that added something. */
 export const dailyRows = (f: Film): DailyRow[] => (f.daily || []).filter((d) => d.added.usd > 0);
@@ -296,7 +319,7 @@ export const STATS: Stats = {
   site: SITE.name, url: SITE.url, email: CONTACT_EMAIL, owner: SITE.owner, analytics: Boolean(GA_ID), ads: Boolean(ADSENSE_CLIENT),
   films: films.length, indian: indian.length, people: people.size, languages: languages.length,
   firstYear: yearsSorted.at(-1)!, lastYear: yearsSorted[0], rate: RATE.inrPerUsd, rateDate: RATE.date,
-  topIndian: indian[0], topWorld: worldwide[0], worldwideCount: worldwide.length, listedCount: listed.length,
+  topIndian: indian[0], topBollywood: (languageBySlug.get('hindi')?.list ?? []).slice(0, 5), topWorld: worldwide[0], worldwideCount: worldwide.length, listedCount: listed.length,
   clubs: Object.fromEntries(CLUBS.map((c) => [c.slug, c.list])) as Record<ClubSlug, Film[]>,
   liveCount: films.filter((f) => f.live).length,
 };
@@ -342,6 +365,26 @@ export const inCinemas: Film[] = films
 /** "No. 1 today": a film's place among those with a running estimate, by today's estimated business. */
 export const todayRank = new Map(inCinemas.filter(liveActive).map((f, i) => [f.id, i + 1]));
 
+// ---------- trending: what people are reading about ----------
+// Views of each film's English Wikipedia article over the last 7 days (scripts/fetch-pageviews.mjs), for films
+// out in the last year and those still to come. Older than 4 days, the figures are left unused.
+
+const TRENDING_RECENT_DAYS = 365;
+const TRENDING_STALE_DAYS = 4;
+const pageViews = readJson<{ through?: string; pages?: Record<string, { views: number }> }>('data/raw/pageviews.json', {});
+const viewsFresh = Boolean(pageViews.through) && (TODAY - Date.parse(`${pageViews.through}T00:00:00Z`)) / DAY_MS <= TRENDING_STALE_DAYS;
+
+export interface TrendingItem { film: Film | UpcomingFilm; views: number }
+
+/** Recent and upcoming films, most-read first (empty when there are no recent figures). */
+export const trending: TrendingItem[] = !viewsFresh ? [] : [
+  ...films.filter((f) => f.date && ageDays(f) <= TRENDING_RECENT_DAYS),
+  ...upcoming,
+]
+  .map((film) => ({ film, views: (film.enwiki && pageViews.pages?.[film.enwiki]?.views) || 0 }))
+  .filter((t) => t.views > 0)
+  .sort((a, b) => b.views - a.views);
+
 export const cinemaBoard = (): CinemaBoard => ({
   generatedAt: data.generatedAt,
   checkedAt: sourcesCheckedAt,
@@ -367,7 +410,10 @@ export const cinemaBoard = (): CinemaBoard => ({
 
 /** Search index: films + people, kept compact. Served as /search.json. */
 export const searchIndex = () => ({
-  films: films.map((f) => [f.title, f.year, f.slug, f.gross.usd, f.gross.inr, isIndian(f) ? 1 : 0]),
+  // Upcoming films have no figure yet (0): the search box labels them "Upcoming".
+  films: [...films, ...upcoming].map((f) => 'gross' in f
+    ? [f.title, f.year, f.slug, f.gross.usd, f.gross.inr, isIndian(f) ? 1 : 0]
+    : [f.title, f.year, f.slug, 0, 0, f.indian ? 1 : 0]),
   people: [...people.values()].map((p) => [p.name, p.slug, p.films.length]),
 });
 

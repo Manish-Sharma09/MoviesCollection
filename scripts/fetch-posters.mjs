@@ -24,8 +24,10 @@ const save = async () => {
   await rename(TMP, OUT);
 };
 
-const { films } = JSON.parse(await readFile(new URL('../data/movies.json', import.meta.url), 'utf8'));
-const isRecent = (f) => f.date && now - Date.parse(f.date) >= 0 && now - Date.parse(f.date) < 90 * DAY;
+// Upcoming films (scripts/merge.mjs) count as recent: their posters change often before release.
+const { films: catalog, upcoming = [] } = JSON.parse(await readFile(new URL('../data/movies.json', import.meta.url), 'utf8'));
+const films = [...catalog, ...upcoming];
+const isRecent = (f) => !f.gross || (f.date && now - Date.parse(f.date) >= 0 && now - Date.parse(f.date) < 90 * DAY);
 const todo = films
   .filter((f) => f.enwiki)
   // Re-read when out of date, or when an earlier version of this script found no poster (v < 2 rejected

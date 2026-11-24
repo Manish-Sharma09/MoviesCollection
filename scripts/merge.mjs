@@ -71,6 +71,10 @@ function languagesFrom(film, page) {
 
 const belowGross = (part, gross) => (part && part.usd < gross.usd ? part : null);
 
+// Streaming services: a film distributed only by these premieres online, not in cinemas, so it is left off
+// the upcoming list. Studios that also release in cinemas (Amazon MGM Studios, Apple Original Films) are not here.
+const STREAMING = /^(?:netflix|prime video|amazon prime video|disney\+(?: hotstar)?|jiohotstar|hotstar|hulu|max|hbo max|peacock|paramount\+|apple tv\+?|zee5|sonyliv|aha|jiocinema|mubi|lionsgate play|sun nxt|manoramamax|etv win|hoichoi|mx player|tubi|youtube)$/i;
+
 /**
  * From the end-of-day infobox figures (history.json) work out:
  *  - daily: the reported total at the end of each day since release, and how much it grew;
@@ -87,9 +91,12 @@ function dailyAndLive(gross, hist, revs) {
     if (!r || r[0] !== gross.currency) continue;
     const day = Math.round((istMidnight(date) - release) / DAY) + 1;
     if (day < 1) continue;
-    // Never go down (reverted vandalism) and never above today's figure (vandalism not yet seen).
+    // Never go down (reverted vandalism) and skip figures well above today's (vandalism not yet seen).
+    // The rest are capped at today's figure: editors often trim a total a little (an estimate replaced by
+    // the actual, $225.0M → $224.3M), and without the cap the series would end above the current figure,
+    // which switched the live estimate off.
     if (r[1] > gross.low * 1.02) continue;
-    const v = Math.max(r[1], max);
+    const v = Math.min(Math.max(r[1], max), gross.low);
     max = v;
     const tsMs = Date.parse(ts);
     const istHour = new Date(tsMs + IST_OFFSET).getUTCHours();
@@ -116,6 +123,13 @@ function dailyAndLive(gross, hist, revs) {
     ? { coveredThrough, base: m(base) }
     : null;
   return { daily, ...(live && { live }) };
+}
+
+/** Wikidata's earliest date, or, when that is only a year (YYYY-01-01), the earliest date that year known to the day. */
+function dayDate(film) {
+  const year = film.date?.endsWith('-01-01') ? film.date.slice(0, 4) : null;
+  const exact = year ? (film.dates || []).filter((d) => d.startsWith(year)).sort()[0] : null;
+  return exact || film.date;
 }
 
 function titleFrom(film) {
@@ -259,7 +273,9 @@ async function main() {
       title,
       year,
       indian: isIndianFilm({ countries, languages }, gross) && verdict(gross) !== 'abroad',
-      date: film.date,
+      // Wikidata's earliest date, or the earliest date that year known to the day when it is only a year (the
+      // year and the page address still come from the earliest date, so they don't change).
+      date: dayDate(film),
       countries,
       languages,
       directors: film.directors.slice(0, 3),
@@ -281,6 +297,63 @@ async function main() {
   films.sort((a, b) => b.gross.usd - a.gross.usd);
   films.forEach((f, i) => (f.rank = i + 1));
 
+  // ---------- upcoming: films due in cinemas in the next 60 days, or out in the last week with no figure yet ----------
+  // `release` is the first of the film's Wikidata dates in that window, so a festival premiere months ago doesn't
+  // hide a cinema release still to come. Slugs are given out after the films', so no film's address changes, and
+  // when an upcoming film gets its first figure its page stays at the same address.
+  const todayIst = new Date(now + IST_OFFSET).toISOString().slice(0, 10);
+  const shift = (days) => new Date(Date.parse(`${todayIst}T00:00:00Z`) + days * DAY).toISOString().slice(0, 10);
+  const windowStart = shift(-6);
+  const windowEnd = shift(60);
+  const tooOld = shift(-400);
+  const MIN_SITELINKS = 4; // first shown more than a year ago: a re-release or a late foreign release, not a new film
+  const listedFilms = new Set(films.map((f) => f.id));
+  const upcoming = [];
+  for (const film of Object.values(wd.films)) {
+    if (listedFilms.has(film.qid) || !film.enwiki || wd.boxOffice[film.qid]) continue;
+    const page = wp[film.enwiki];
+    if (!page || page.missing || page.gross?.currency) continue;
+    // `dates`: every date Wikidata has to the day (older downloads lack it: fall back to the earliest date).
+    const dates = (Array.isArray(film.dates) ? film.dates : [film.date]).filter((d) => d && !d.endsWith('-01-01')).sort();
+    const release = dates.find((d) => d >= windowStart && d <= windowEnd);
+    if (!release || (film.date && film.date < tooOld)) continue;
+    const distributors = [...new Set([...(page.distributor || []), ...(film.distributors || [])])];
+    if (distributors.length && distributors.every((d) => STREAMING.test(d.trim()))) continue;
+    const title = titleFrom(film);
+    if (!title) continue;
+    const countries = countriesFrom(film, page);
+    const languages = languagesFrom(film, page);
+    const indian = countries.length ? isIndianFilm({ countries, languages }, {}) : languages.some((l) => INDIAN_LANGUAGES.has(l));
+    // International films need articles in a few Wikipedia languages, which keeps out small festival titles.
+    // Indian films often have only one or two, so every one is kept.
+    if (!indian && (film.sitelinks || 0) < MIN_SITELINKS) continue;
+    const year = yearFrom(film);
+    let slug = slugify(`${title}${year ? `-${year}` : ''}`) || film.qid.toLowerCase();
+    if (slugs.has(slug)) slug = `${slug}-${film.qid.toLowerCase()}`;
+    slugs.add(slug);
+    const budget = fromWikipedia(page.budget, film) || pick(wd.budget[film.qid], () => true);
+    upcoming.push({
+      id: film.qid,
+      slug,
+      title,
+      year,
+      indian,
+      release,
+      date: film.date,
+      countries,
+      languages,
+      directors: film.directors.slice(0, 3),
+      starring: page.starring || [],
+      runtime: film.runtime,
+      imdb: film.imdb,
+      enwiki: film.enwiki,
+      budget: budget && budget.usd < 1e9 ? budget : null,
+      distributors: distributors.slice(0, 4),
+      sitelinks: film.sitelinks || 0,
+    });
+  }
+  upcoming.sort((a, b) => a.release.localeCompare(b.release) || b.sitelinks - a.sitelinks);
+
   await writeFile(
     new URL('../data/movies.json', import.meta.url),
     JSON.stringify({
@@ -288,11 +361,13 @@ async function main() {
       sources: { wikipedia: wikipedia.fetchedAt },
       rates: { date: rateDate, inrPerUsd: perUsd.INR },
       films,
+      upcoming,
     })
   );
   console.log(
     `Merged ${films.length} films with a box office figure (Wikipedia: ${fromWp}, Wikidata: ${fromWd}) → data/movies.json`
   );
+  console.log(`Upcoming: ${upcoming.length} films due in cinemas by ${windowEnd} (or out since ${windowStart} with no figure yet).`);
   const stale = Object.keys(overrides).filter((qid) => qid.startsWith('Q') && !usedOverrides.has(qid));
   if (stale.length) {
     console.warn(`Unused gross overrides (infobox changed or film missing), check data/gross-overrides.json:\n  ${

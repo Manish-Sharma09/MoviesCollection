@@ -28,8 +28,11 @@ jobs:
       - run: npm ci
 
       # Keeps Wikidata metadata and Wikipedia results between runs, so a daily run only
-      # re-reads new releases and anything older than a week.
-      - uses: actions/cache@v4
+      # re-reads new releases and anything older than a week. Restored here and saved by its own
+      # step after the build: a plain actions/cache only saves when the whole job succeeds, so a
+      # failed deploy used to throw the fetched data away and every run started from nothing.
+      - name: Restore fetched data
+        uses: actions/cache/restore@v4
         with:
           path: |
             data/raw/wikidata.json
@@ -42,6 +45,7 @@ jobs:
             data/raw/posters.json
             data/raw/worldwide-lifetime.json
             data/raw/ratings.json
+            data/raw/pageviews.json
           key: raw-data-${{ github.run_id }}
           restore-keys: raw-data-
 
@@ -56,6 +60,7 @@ jobs:
 
       # The 3-hourly run only re-reads films in cinemas; it needs last full run's data to start from.
       - name: Fetch data
+        id: fetch
         run: |
           if [ "$SCHEDULE" = '0 */3 * * *' ] && [ -f data/raw/wikidata.json ]; then
             npm run fetch:live
@@ -71,6 +76,7 @@ jobs:
       - name: Build site
         run: npm run build
         env:
+          CONTACT_UA: ${{ vars.CONTACT_UA }}
           SITE_URL: ${{ vars.SITE_URL }}
           SITE_NAME: ${{ vars.SITE_NAME }}
           GA_ID: ${{ vars.GA_ID }}
@@ -80,6 +86,26 @@ jobs:
           SITE_OWNER: ${{ vars.SITE_OWNER }}
           IMDB_RATINGS: ${{ vars.IMDB_RATINGS }}
 
+      # Saved whether or not the build and deploy work, as long as the fetch did, so the next
+      # 3-hourly run can do its quick in-cinemas refresh instead of a two-hour full fetch.
+      - name: Save fetched data
+        if: ${{ !cancelled() && steps.fetch.outcome == 'success' }}
+        uses: actions/cache/save@v4
+        with:
+          path: |
+            data/raw/wikidata.json
+            data/raw/wikipedia.json
+            data/raw/history.json
+            data/raw/rates.json
+            data/raw/cpi.json
+            data/raw/lists.json
+            data/raw/people.json
+            data/raw/posters.json
+            data/raw/worldwide-lifetime.json
+            data/raw/ratings.json
+            data/raw/pageviews.json
+          key: raw-data-${{ github.run_id }}
+
       # Creates the Cloudflare Pages project on the first run; fails harmlessly once it exists.
       - name: Create Cloudflare Pages project
         continue-on-error: true
@@ -87,11 +113,11 @@ jobs:
         with:
           apiToken: ${{ secrets.CLOUDFLARE_API_TOKEN }}
           accountId: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
-          command: pages project create ${{ vars.CF_PROJECT || 'collection-board' }} --production-branch=main
+          command: pages project create ${{ vars.CF_PROJECT || 'livegross' }} --production-branch=main
 
       - name: Deploy to Cloudflare Pages
         uses: cloudflare/wrangler-action@v3
         with:
           apiToken: ${{ secrets.CLOUDFLARE_API_TOKEN }}
           accountId: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
-          command: pages deploy out --project-name=${{ vars.CF_PROJECT || 'collection-board' }} --branch=main
+          command: pages deploy out --project-name=${{ vars.CF_PROJECT || 'livegross' }} --branch=main

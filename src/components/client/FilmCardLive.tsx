@@ -1,7 +1,7 @@
 'use client';
 // The moving parts of a home page film card: the day of the run, and the worldwide total with today's
-// takings and the minutes to the next live step. The static HTML shows the reported total; after hydration
-// a film with a running estimate ticks in 5-minute steps (src/lib/live.ts), like the rest of the site.
+// takings and the seconds to the next live step. The static HTML shows the reported total; after hydration
+// a film with a running estimate ticks in 1-minute steps (src/lib/live.ts), like the rest of the site.
 import { CLIENT_TEXT } from '@/content/client-text';
 import { formatMoney, splitFigure, type Currency, type Lang } from '@/lib/format';
 import { DAY, istMidnight, liveState, STEP } from '@/lib/live';
@@ -30,7 +30,7 @@ export function CardGross({ gross, native, live }: { gross: Money; native: Curre
   const step = real === null ? null : Math.floor(real / STEP) * STEP;
   const state = live && step !== null ? liveState({ ...gross, ...live }, step) : null;
   const [c, int, dec, unit] = parts(cur, state ?? gross, lang);
-  const minutes = state && real !== null && step !== null ? Math.max(1, Math.ceil((step + STEP - real) / 60_000)) : null;
+  const seconds = state && real !== null && step !== null ? Math.max(1, Math.ceil((step + STEP - real) / 1000)) : null;
 
   return (
     <>
@@ -44,10 +44,10 @@ export function CardGross({ gross, native, live }: { gross: Money; native: Curre
             <span className={state.today.inr > 0 ? 'fc-today' : 'fc-today is-quiet'}>
               {state.today.inr > 0 ? <><svg viewBox="0 0 12 12" aria-hidden="true"><path d="M6 2 11 10H1z" /></svg>{text.today(formatMoney(state.today, cur, lang))}</> : text.noShows}
             </span>
-            {minutes !== null ? (
-              <span className="fc-refresh" title={`${text.refreshTitle} ${text.refreshMin(minutes)}`}>
+            {seconds !== null ? (
+              <span className="fc-refresh" title={`${text.refreshTitle} ${text.refreshSec(seconds)}`}>
                 <svg viewBox="0 0 16 16" aria-hidden="true"><path d="M13.5 8a5.5 5.5 0 1 1-1.6-3.9M13.5 2.5v3h-3" /></svg>
-                {text.refreshMin(minutes)}
+                {text.refreshSec(seconds)}
               </span>
             ) : null}
           </>

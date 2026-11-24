@@ -3,7 +3,7 @@
 // recent daily collection, under a summary of what all of them have collected today.
 //
 // The first render (static HTML) is computed at the build time it is given, so it matches on hydration;
-// after that the figures follow the clock in 5-minute steps (src/lib/live.ts). While the page is open it
+// after that the figures follow the clock in 1-minute steps (src/lib/live.ts). While the page is open it
 // re-reads /live.json, so new reported figures arrive without a reload.
 import { useEffect, useState } from 'react';
 import { CLIENT_TEXT } from '@/content/client-text';
@@ -14,7 +14,7 @@ import { otherCurrency, SafeImg } from './basics';
 import { useCurrency, useLang, useNow } from './hooks';
 import { Figure } from './Live';
 
-const REFRESH_EVERY = 5 * 60_000;
+const REFRESH_EVERY = 60_000;
 type Text = (typeof CLIENT_TEXT)[Lang];
 
 const ist = (ms: number, lang: Lang, opts: Intl.DateTimeFormatOptions) =>
@@ -34,7 +34,7 @@ export function LiveBoard({ initial, buildTime }: { initial: CinemaBoard; buildT
   const [board, setBoard] = useState(initial);
   const [arrived, setArrived] = useState(false);
 
-  // Pick up new reported figures while the page is open: every 5 minutes, and when the tab comes back.
+  // Pick up new reported figures while the page is open: every minute, and when the tab comes back.
   useEffect(() => {
     let cancelled = false;
     let hideNote: ReturnType<typeof setTimeout> | undefined;

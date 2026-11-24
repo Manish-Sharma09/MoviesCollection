@@ -17,6 +17,9 @@ const WINDOW_DAYS = Number(process.env.HISTORY_DAYS || 90);
 const MAX_FILMS = Number(process.env.HISTORY_MAX_FILMS || 60);
 const API = 'https://en.wikipedia.org/w/api.php';
 
+/** Wikidata's earliest date, or, when that is only a year (YYYY-01-01), the earliest date that year known to the day. */
+const dayDate = (f) => (f.date?.endsWith('-01-01') && f.dates?.some((d) => d.startsWith(f.date.slice(0, 4)))
+  ? f.dates.filter((d) => d.startsWith(f.date.slice(0, 4))).sort()[0] : f.date);
 const istDate = (iso) => new Date(Date.parse(iso) + IST_OFFSET).toISOString().slice(0, 10);
 const api = (params) =>
   getJson(`${API}?${new URLSearchParams({ format: 'json', formatversion: '2', maxlag: '5', ...params })}`, {}, { label: 'wikipedia history' });
@@ -70,8 +73,10 @@ async function main() {
   const cache = await readFile(OUT, 'utf8').then(JSON.parse).catch(() => ({ films: {}, revs: {} }));
   const now = Date.now();
 
-  // Films released in the window (exact dates only) that have, or may have, a gross figure.
+  // Films released in the window (exact dates only) that have, or may have, a gross figure. When Wikidata's
+  // earliest date is only a year (YYYY-01-01), the earliest date it has to the day is used instead.
   const recent = Object.values(films)
+    .map((f) => ({ ...f, date: dayDate(f) }))
     .filter((f) => f.enwiki && f.date && !f.date.endsWith('-01-01'))
     .filter((f) => {
       const age = now - Date.parse(`${f.date}T00:00:00Z`);

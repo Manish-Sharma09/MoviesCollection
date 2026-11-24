@@ -5,7 +5,7 @@ import type { Money } from '@/lib/types';
 import type { Content } from './types';
 
 const PRIVACY_DATE = '23 November 2026';
-const TERMS_DATE = '23 November 2026';
+const TERMS_DATE = '24 November 2026';
 const DISCLAIMER_DATE = '23 November 2026';
 // Film links go to the English film pages (they are not translated).
 const film = (f: { slug?: string; title: string }) => (f.slug ? `<a href="/movie/${f.slug}/">${esc(f.title)}</a>` : esc(f.title));
@@ -29,7 +29,7 @@ const content: Content = {
     switchTitle: 'Read this page in English',
     skip: 'Skip to content',
     navLabel: 'Main',
-    nav: { live: 'Live', liveLong: 'Live box office', top: 'All-time', topLong: 'All-time chart', india: 'Indian films', years: 'Years', yearsLong: 'Box office by year', guides: 'Guides', about: 'About' },
+    nav: { live: 'Live', liveLong: 'Box office collection today', upcoming: 'Upcoming', upcomingLong: 'Upcoming movies', top: 'All-time', topLong: 'Highest grossing movies', india: 'Indian films', years: 'Years', yearsLong: 'Box office collection by year', guides: 'Guides', about: 'About' },
     home: 'Home',
     breadcrumb: 'Breadcrumb',
     searchLabel: 'Search films and people',
@@ -58,20 +58,32 @@ const content: Content = {
     imagesNote: 'Film posters come from Wikipedia and are shown small, only to identify the films. Photos of people are from Wikimedia Commons, credited with their photographer and licence.',
     adLabel: 'Advertisement',
 
-    boardTitle: 'In cinemas now',
-    boardNote: 'Films released in the past 60 days, ranked by reported collection.',
-    boardFallback: (y) => `Biggest films of ${y}`,
-    boardFallbackNote: 'No new releases with reported figures in the last 60 days.',
+    boardTitle: 'Box office collection today',
+    boardGroups: { indian: 'Indian movies', international: 'Hollywood & international movies' },
+    boardEmpty: 'No film in this group has reported figures right now.',
+    seeAll: 'See all',
+    browseTitle: 'Browse box office collection',
+    footerBollywood: 'Bollywood box office collection',
+    footerHollywood: 'Hollywood box office collection',
+    browseIndustry: 'By industry',
+    browseYear: 'By year',
+    yearIndian: (y) => `Bollywood and Indian movies of ${y}`,
+    yearAll: (y) => `All movies of ${y} worldwide`,
+    trendingTitle: 'Trending this week',
+    trendingNote: 'Most-read on Wikipedia in the last 7 days',
+    trendingViews: (n) => `${n} views`,
+    upcomingTitle: 'Upcoming movies',
+    upcomingSeeAll: 'All upcoming films',
+    outNowTitle: 'Just released',
+    advance: 'Advance booking',
+    boardMore: (n) => `Show ${formatCount(n)} more ${n === 1 ? 'film' : 'films'}`,
+    boardLess: 'Show fewer',
+    boardFallback: (y) => `Highest grossing movies of ${y}`,
     day: (n) => `Day ${n}`,
-    clubsTitle: 'The crore clubs',
-    clubsNote: 'Indian films grouped by what they earned worldwide, next to the films that crossed a billion dollars.',
+    clubsTitle: 'Crore club movies',
     clubCount: (label) => `films in the ${label}`,
-    topIndia: 'Biggest Indian films',
-    topIndiaNote: 'Worldwide gross, all languages.',
-    allIndian: 'All Indian films by collection',
-    topWorld: 'Biggest films worldwide',
-    topWorldNote: 'Every country and language, not adjusted for inflation.',
-    top500: 'View the all-time chart',
+    topIndia: 'Highest grossing Indian movies',
+    topWorld: 'Highest grossing movies worldwide',
     chartSource: 'Wikipedia’s list of highest-grossing films',
     byYear: "Each year's biggest film",
     everyYear: 'Every year',
@@ -79,22 +91,13 @@ const content: Content = {
     explore: 'Explore by year, language and guides',
     menu: { open: 'Open menu', close: 'Close menu', title: 'Menu', settings: 'Settings' },
     card: {
-      released: (d) => `Released ${d}`,
-      budget: 'Reported budget',
       worldwide: 'Worldwide gross',
-      indiaNet: 'India net',
-      indiaGross: 'India gross',
-      overseas: 'Overseas',
-      northAmerica: 'North America',
       rankToday: (n) => `No. ${n} today`,
       indian: 'Indian',
       international: 'International',
-      votes: (n) => `${n} IMDb votes`,
     },
     faqTitle: 'Frequently asked questions',
     filmsCount: (n) => `${formatCount(n)} films`,
-    indianFilms: 'Indian films',
-    allFilms: 'All films',
     adjustedLink: 'Adjusted for inflation',
     reportedLink: 'Reported figures',
     reportedThen: 'reported',
@@ -110,10 +113,9 @@ const content: Content = {
   club,
 
   hero: () => ({
-    kicker: 'Box office tracker',
-    h1Html: 'Box office<br><em>collections</em>',
+    kicker: 'Live box office tracker',
+    h1Html: 'Box office<br><em>collection</em>',
     intro: 'Track recent releases, worldwide grosses and all-time records for Indian and international films.',
-    browse: 'Recent releases',
     live: 'Live collection',
     seeAllLive: 'All films in cinemas',
     updated: 'Sources checked',
@@ -129,8 +131,8 @@ const content: Content = {
     `The top ${count} are from ${link}, last edited ${asOf} IST; the rest are ranked by the worldwide gross on each film’s own Wikipedia article. Not adjusted for inflation.`,
 
   home: (s) => ({
-    title: `Box Office Collection Today: Live, Day-wise & Worldwide | ${s.site}`,
-    description: `Live box office collection today for films in cinemas, with day-wise figures, worldwide gross, budget and all-time rank for ${formatCount(s.films)} Bollywood, South Indian and Hollywood films.`,
+    title: `Box Office Collection: Latest Movies, Bollywood & Worldwide | ${s.site}`,
+    description: `Movies box office collection, live and day-wise: today's collection of new Bollywood, Telugu, Tamil and Hollywood releases, upcoming movies, and the highest grossing movies in India and the world. ${formatCount(s.films)} films, updated every day.`,
     h1: 'Box office collection, today and <span class="nowrap">all-time</span>',
     intro: `Live totals for films in cinemas, and the worldwide gross, budget and rank of ${formatCount(s.films)} Indian and international films.`,
   }),
@@ -191,6 +193,18 @@ const content: Content = {
         q: 'Which film has the highest box office collection worldwide?',
         a: `<p>${film(tw)}${tw.year ? ` (${tw.year})` : ''} has the highest worldwide box office collection, ${usd(tw)}. The <a href="/top/">all-time chart</a> lists the top ${formatCount(s.worldwideCount)} films. Figures are not adjusted for inflation.</p>`,
       },
+      s.topBollywood.length ? {
+        q: 'Which are the highest grossing Bollywood movies?',
+        a: `<p>By worldwide box office collection, the highest grossing Bollywood (Hindi) movies are ${joinNames(s.topBollywood.map((f) => `${film(f)} (${inr(f)})`))}. See the full <a href="/language/hindi/">Bollywood box office collection</a> list, or the <a href="/india/">highest grossing Indian movies</a> in every language.</p>`,
+      } : undefined,
+      {
+        q: 'Where can I see the box office collection of new movies today?',
+        a: '<p>The <a href="/live/">box office collection today</a> page lists every new movie in cinemas with its worldwide collection, what it has collected today and its day-wise trend. Each film’s own page has its day-wise box office collection.</p>',
+      },
+      {
+        q: 'Which are the upcoming Bollywood and South Indian movies?',
+        a: '<p>The <a href="/upcoming/">upcoming movies</a> page lists the Bollywood, South Indian and Hollywood movies due in cinemas in the next 60 days, with release dates, countdowns and advance booking where it has been reported.</p>',
+      },
       {
         q: 'How is box office collection calculated?',
         a: '<p>Cinemas report ticket sales to distributors, and trade analysts and producers publish the totals. The gross collection is the number of tickets sold multiplied by their prices. Totals from different countries are added up for the worldwide figure, converted to one currency at the exchange rate of the day.</p>',
@@ -205,7 +219,7 @@ const content: Content = {
       },
       {
         q: 'How often are box office collections updated?',
-        a: '<p>The whole site is rebuilt every day. Films released in the last 90 days are refreshed every three hours, and the live estimate on their pages moves every few minutes between reports.</p>',
+        a: '<p>The whole site is rebuilt every day. Films released in the last 90 days are refreshed every three hours, and the live estimate on their pages moves every minute between reports.</p>',
       },
       {
         q: 'How can I see the day-wise box office collection of a film?',
@@ -242,22 +256,29 @@ const content: Content = {
 
   pages: {
     live: (s, n) => ({
-      h1: 'Live box office collection',
-      title: 'Live box office collection today: every film in cinemas',
-      description: `Live box office collection today for the ${formatCount(n)} films in cinemas: running worldwide totals that update every 5 minutes, today's collection and each film's recent daily trend.`,
-      intro: 'Every film in cinemas now, with its worldwide total and what it has collected today. Between reported figures the totals move every 5 minutes.',
+      h1: 'Box office collection today',
+      title: 'Box office collection today: live collection of new movies',
+      description: `New movies box office collection today: the live worldwide collection of all ${formatCount(n)} new movies in cinemas, moving every minute, with today's collection and the day-wise trend of every Bollywood, South Indian and Hollywood release.`,
+      intro: 'Every new movie in cinemas, with its worldwide box office collection and what it has collected today. Between reported figures the totals move every minute.',
       note: `How it works: each total is the latest figure reported on Wikipedia, plus an estimate for the time since, based on the last three days, the day of the week and show times. A film with no new report in four days shows its last reported figure. New reports are read every three hours, and this page picks them up while it is open. <a href="/guides/live-box-office-estimate/">How the live estimate works</a>.`,
     }),
+    upcoming: (n, days, years) => ({
+      h1: `Upcoming movies ${years}`,
+      title: `Upcoming movies ${years}: Bollywood, South & Hollywood release dates`,
+      description: `Upcoming movies ${years}: upcoming Bollywood movies, South Indian and Hollywood releases, ${formatCount(n)} in all, due in cinemas in the next ${days} days, with release dates, countdowns and advance booking where it has been reported.`,
+      intro: `Upcoming Bollywood, South Indian and Hollywood movies due in cinemas in the next ${days} days, soonest first. Each film's page counts down to release and becomes its live box office page once the first figure is reported.`,
+      note: 'Release dates come from Wikidata and can change. Advance booking is the ticket pre-sales amount stated in the film\'s Wikipedia article, shown only when one is reported. Films premiering on a streaming service are left out.',
+    }),
     top: () => ({
-      h1: 'Biggest films of all time',
-      title: 'Highest-grossing films of all time worldwide',
-      description: 'The highest-grossing films of all time at the worldwide box office, ranked from Wikipedia’s list of highest-grossing films and each film’s own figures.',
+      h1: 'Highest grossing movies of all time',
+      title: 'Highest grossing movies of all time: top collection movies in the world',
+      description: 'Top collection movies in the world by box office collection worldwide: the highest grossing movies of all time, Hollywood and Indian, ranked from Wikipedia’s list of highest-grossing films and each film’s own figures.',
     }),
     india: (s) => ({
-      h1: 'Biggest Indian films',
-      title: 'Highest-grossing Indian films of all time',
-      description: 'Highest-grossing Indian films of all time by worldwide box office collection: Bollywood, Telugu, Tamil, Malayalam, Kannada and more.',
-      intro: `The highest-grossing Indian films worldwide, in every language. ${formatCount(s.indian)} films tracked.`,
+      h1: 'Highest grossing Indian movies',
+      title: 'Highest grossing Indian movies: top collection movies in India',
+      description: 'Indian movies box office collection: the top collection movies in India, ranked by worldwide gross, from Bollywood to Telugu, Tamil, Malayalam and Kannada. The highest grossing Indian movies of all time, top 10 first.',
+      intro: `The highest collection movies in India, in every language, ranked by worldwide box office collection. ${formatCount(s.indian)} Indian movies tracked.`,
     }),
     topAdjusted: (s, y) => ({
       h1: 'Biggest films of all time, adjusted for inflation',
@@ -272,7 +293,7 @@ const content: Content = {
       intro: `Each film’s worldwide gross raised to ${y} prices with India’s consumer price index (World Bank). Older classics earned their money at a fraction of today’s ticket prices; this list shows what those totals are worth now. Totals that include re-releases or ticket sales abroad in other currencies are raised from the first release year, so treat them as rough. Films from before 1960 are not included. <a href="/guides/inflation-and-all-time-records/">More on inflation and records</a>.`,
     }),
     club: (meta, n) => ({
-      title: `${meta.label}: all ${formatCount(n)} films`,
+      title: `${meta.label} movies list: all ${formatCount(n)} films`,
       description: `${meta.note} Full list of ${formatCount(n)} films ranked by box office collection.`,
       intro: `${meta.note} ${formatCount(n)} films so far.`,
     }),
@@ -283,22 +304,33 @@ const content: Content = {
       intro: 'Each year\'s biggest film, every language we track, our box office guides and answers to the questions we get asked most.',
     }),
     years: () => ({
-      h1: 'Box office by year',
-      title: 'Box office collection by year',
-      description: 'The highest-grossing film of every year at the worldwide box office.',
+      h1: 'Box office collection by year',
+      title: 'Box office collection by year: highest grossing movie of every year',
+      description: 'The highest grossing movie of every year at the worldwide box office, with a page for each year’s biggest Bollywood, South Indian and Hollywood movies.',
       intro: 'The biggest film of every year we have figures for.',
     }),
     year: (y, n, ind) => ({
-      h1: `Biggest films of ${y}`,
-      title: `Box office collection ${y}: biggest films of ${y}`,
-      description: `The highest-grossing films of ${y} worldwide${ind ? ` and the biggest Indian films of ${y}` : ''}, ranked by box office collection.`,
-      intro: `${formatCount(n)} films from ${y} with box office figures${ind ? `, ${formatCount(ind)} of them Indian` : ''}.`,
+      h1: `Highest grossing movies of ${y}`,
+      title: `Box office collection ${y}: highest grossing movies of ${y}`,
+      description: `Box office collection ${y}: the highest grossing movies of ${y} worldwide${ind ? `, and the top Bollywood and South Indian movies of ${y}` : ''}, ranked by worldwide gross.`,
+      intro: `${formatCount(n)} movies from ${y} with box office figures${ind ? `, ${formatCount(ind)} of them Indian` : ''}.`,
     }),
-    language: (name, n) => ({
-      h1: `Biggest ${name} films`,
-      title: `Highest-grossing ${name} films of all time`,
-      description: `All-time highest-grossing ${name} films by worldwide box office collection.`,
-      intro: `${formatCount(n)} ${esc(name)} films ranked by worldwide gross.`,
+    // Hindi films are searched for as Bollywood and English ones as Hollywood.
+    language: (name, n, slug) => (slug === 'hindi' ? {
+      h1: 'Bollywood box office collection',
+      title: 'Bollywood box office collection: highest grossing Bollywood movies',
+      description: `Bollywood movies collection: the box office collection of ${formatCount(n)} Bollywood (Hindi) movies, ranked by worldwide gross. The top 10 Bollywood movies, the highest grossing Bollywood movies of all time and this year's new releases.`,
+      intro: `Bollywood movies collection: every Hindi movie on the site, ranked by worldwide box office collection, top 10 first. ${formatCount(n)} movies.`,
+    } : slug === 'english' ? {
+      h1: 'Hollywood box office collection',
+      title: 'Hollywood movies box office collection: highest grossing Hollywood movies',
+      description: `Hollywood box office collection of ${formatCount(n)} English-language movies, ranked by worldwide gross: the highest grossing Hollywood movies of all time and this year's new releases.`,
+      intro: `English-language movies from Hollywood and beyond, ranked by worldwide box office collection. ${formatCount(n)} movies.`,
+    } : {
+      h1: `${name} movies box office collection`,
+      title: `${name} movies box office collection: highest grossing ${name} movies`,
+      description: `${name} movies box office collection: ${formatCount(n)} ${name} movies ranked by worldwide gross, from the highest grossing ${name} movies of all time to new releases.`,
+      intro: `${formatCount(n)} ${esc(name)} movies ranked by worldwide box office collection.`,
     }),
 
     about: (s) => ({
@@ -330,7 +362,7 @@ const content: Content = {
 <p>It is the total ticket sales across all countries, before the cinema's share, as reported. Indian films are shown in rupees and other films in US dollars by default; use the ₹ and $ buttons at the top to switch.</p>
 
 <h2>Live estimates</h2>
-<p>For films in cinemas, the site reads each film's Wikipedia history to get the total at the end of every day, which gives the day-wise table. Between reports it estimates the running total: it takes the average of the last three days, adjusts for the day of the week (weekends earn more), lowers it slightly each day, and spreads it across the day following show times. The estimate moves in 5-minute steps and is marked with a red dot. When a new figure is reported, the estimate starts again from it, and after four days without a report the site stops estimating.</p>
+<p>For films in cinemas, the site reads each film's Wikipedia history to get the total at the end of every day, which gives the day-wise table. Between reports it estimates the running total: it takes the average of the last three days, adjusts for the day of the week (weekends earn more), lowers it slightly each day, and spreads it across the day following show times. The estimate moves in 1-minute steps and is marked with a red dot. When a new figure is reported, the estimate starts again from it, and after four days without a report the site stops estimating.</p>
 
 <h2>Conversions and inflation</h2>
 <p>Amounts are converted at the latest exchange rate (₹${s.rate} per US$, rate of ${formatDate(s.rateDate)}), so older films look smaller than they were at the time. Figures are not adjusted for inflation.</p>
@@ -416,6 +448,7 @@ ${s.ads ? `<h2>Advertising</h2>
 
 <h2>Sources and licences</h2>
 <p>Box office figures are facts reported by trade sources. Data from Wikidata is available under CC0. Figures from Wikipedia, including the all-time chart taken from its List of highest-grossing films, are used with attribution under the Creative Commons Attribution-ShareAlike licence, and each page links to its source.</p>
+<p>Inflation-adjusted figures use consumer price index data from the <a href="https://data.worldbank.org/indicator/FP.CPI.TOTL" rel="noopener">World Bank</a>, used under the <a href="https://creativecommons.org/licenses/by/4.0/" rel="noopener license">Creative Commons Attribution 4.0</a> licence. Currency conversions use European Central Bank reference rates, via the Frankfurter API. The “Trending this week” list uses Wikipedia page view counts published by the Wikimedia Foundation under CC0.</p>
 
 <h2>Images</h2>
 <p>Film posters are shown at a small size only to identify the films they belong to, as Wikipedia does. Copyright in each poster stays with its owner. If you hold the rights to an image and want it removed, write to us through the <a href="/contact/">contact page</a> and we will take it down promptly. Photos of people come from Wikimedia Commons under free licences and are credited with their author and licence.</p>

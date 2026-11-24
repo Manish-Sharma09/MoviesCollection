@@ -60,3 +60,9 @@ export const itemListLd = (list: { slug?: string }[], name: string) => ({
 
 /** Makes root-relative links in an HTML string absolute (FAQ answers in JSON-LD). */
 export const absoluteLinks = (html: string) => html.replace(/href="\//g, `href="${SITE.url}/`);
+
+/** FAQPage structured data for questions shown on the page (answers are HTML; Google allows links and <p>). */
+export const faqLd = (items: { q: string; a: string }[]) => ({
+  '@context': 'https://schema.org', '@type': 'FAQPage',
+  mainEntity: items.map(({ q, a }) => ({ '@type': 'Question', name: q, acceptedAnswer: { '@type': 'Answer', text: absoluteLinks(a) } })),
+});

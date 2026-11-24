@@ -1,4 +1,4 @@
-// Reads gross / budget / starring from the "Infobox film" on English Wikipedia for every film
+// Reads gross / budget / starring / distributor from the "Infobox film" on English Wikipedia for every film
 // collected from Wikidata. Uses the free MediaWiki API, 50 articles per request, one request
 // at a time. Results are cached so a re-run only refreshes entries older than WIKI_MAX_AGE_DAYS.
 // Output: data/raw/wikipedia.json
@@ -21,7 +21,7 @@ const DAY = 86_400_000;
 const MAX_AGE_MS = Number(process.env.WIKI_MAX_AGE_DAYS || 6) * DAY;
 // Films released in the last ~6 months are still earning, so they are re-read on every run.
 const RECENT_MS = 183 * DAY;
-const RECENT_MAX_AGE_MS = 3 * 3_600_000;
+const RECENT_MAX_AGE_MS = Number(process.env.WIKI_RECENT_MAX_AGE_HOURS || 3) * 3_600_000;
 const BATCH = 50;
 
 async function loadCache() {
@@ -43,6 +43,8 @@ function extract(wikitext) {
     starring: parseList(getInfoboxField(wikitext, 'starring'), 6),
     country: parseList(getInfoboxField(wikitext, 'country'), 6),
     language: parseList(getInfoboxField(wikitext, 'language'), 6),
+    // Tells a cinema release from a streaming premiere (Netflix…) for the upcoming list.
+    distributor: parseList(getInfoboxField(wikitext, 'distributor'), 6),
   };
 }
 
@@ -78,7 +80,8 @@ async function main() {
   const now = Date.now();
   const recent = new Set(
     Object.values(films)
-      .filter((f) => f.enwiki && f.date && now - Date.parse(f.date) < RECENT_MS && Date.parse(f.date) < now + 60 * DAY)
+      // Any release date counts (dates: every one Wikidata has), so a festival film opening in cinemas soon is recent too.
+      .filter((f) => f.enwiki && (f.dates?.length ? f.dates : [f.date]).some((d) => d && now - Date.parse(d) < RECENT_MS && Date.parse(d) < now + 60 * DAY))
       .map((f) => f.enwiki)
   );
   const titles = [...new Set(Object.values(films).map((f) => f.enwiki).filter(Boolean))];

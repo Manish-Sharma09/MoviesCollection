@@ -78,3 +78,27 @@ test('keeps a plain total next to a worldwide figure', () => {
   assert.equal(f.indiaGross.inr, 318.01e7);
   assert.equal(f.overseas.inr, 157.61e7);
 });
+
+test('reads the advance booking amount, as a floor when the article says "over"', async () => {
+  const { advanceFigure } = await import('./lib/boxoffice-text.mjs');
+  const text = `== Release ==
+Advance booking for the film opened on 1 December.<ref>{{cite web|title=x}}</ref>
+By the eve of release, the film had collected over {{INRConvert|42.5|c}} gross from advance bookings for its opening day.
+On day two it had sold ₹12 crore in advance booking.
+== Box office ==
+The film grossed ₹150 crore worldwide on its opening day.`;
+  const a = advanceFigure(text);
+  assert.equal(a.inr, 42.5e7);
+  assert.equal(a.approx, true);
+  assert.match(a.quote, /advance bookings/);
+});
+
+test('reads presales in dollars and ignores rights deals and record comparisons', async () => {
+  const { advanceFigure } = await import('./lib/boxoffice-text.mjs');
+  assert.equal(advanceFigure('The film made $40 million in presales, according to Fandango.').usd, 40e6);
+  assert.equal(advanceFigure('Its satellite and digital rights were sold for ₹200 crore in a pre-release deal, before advance booking began.'), null);
+  assert.equal(advanceFigure("Its advance booking of ₹60 crore surpassed the previous record of ₹50 crore set by another film."), null);
+  assert.equal(advanceFigure('The film grossed ₹300 crore worldwide.'), null);
+  assert.equal(advanceFigure('In the United Kingdom, the film amassed $1.2 million in presales from BFI IMAX, breaking the first-day presale record set by another film ($1 million).'), null);
+  assert.equal(advanceFigure('By the end of October, the film had reached $125 million in pre-sales.').usd, 125e6);
+});
