@@ -1450,7 +1450,7 @@ html.motion:not(.motion-ready) .ranks li:nth-child(-n + 40) .bar i { transform: 
 .hero h1 { text-wrap: wrap; }
 
 /* ---------- Intro (src/components/Intro.tsx) ---------- */
-/* First page of a session only: the head script adds `preload` to <html>. Always ink, in both themes.
+/* On opening or reloading the site: the head script adds `preload` to <html>. Always ink, in both themes.
    Layers: the two halves of the screen, the tear line, the three.js canvas, then the logo, name and line. */
 .intro { display: none; }
 html.preload .intro {

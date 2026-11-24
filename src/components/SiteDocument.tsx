@@ -62,7 +62,7 @@ export function SiteDocument({ lang, children }: { lang: Lang; children: ReactNo
       <body>
         {/* Runs before the page paints, so a saved theme never flashes the other one. */}
         <script dangerouslySetInnerHTML={{ __html: THEME_SCRIPT }} />
-        {/* First visit of a session only (the script above decides); hidden otherwise. */}
+        {/* When the site is opened or reloaded (the script above decides); hidden otherwise. */}
         <Intro />
         <PressFeedback />
         <LangProvider lang={lang}>{children}</LangProvider>

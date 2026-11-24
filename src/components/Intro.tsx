@@ -1,5 +1,5 @@
-// The intro overlay: the logo, the site's name and a loading line on an ink screen, shown on the first page a
-// visitor opens in a browser session (the head script in src/lib/theme.ts decides, and adds `preload` to
+// The intro overlay: the logo, the site's name and a loading line on an ink screen, shown when someone opens or
+// reloads the site, not when they click between its pages (the head script in src/lib/theme.ts decides, and adds `preload` to
 // <html> before the first paint; without it the overlay is display: none). The flat logo animates at once;
 // src/components/client/Intro.tsx then lifts it into a 3D ticket (three.js, loaded on demand) and, once the
 // page has loaded, tears the overlay open along a perforation. Decorative only: hidden from screen readers.
