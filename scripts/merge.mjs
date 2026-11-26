@@ -91,19 +91,22 @@ function dailyAndLive(gross, hist, revs) {
     if (!r || r[0] !== gross.currency) continue;
     const day = Math.round((istMidnight(date) - release) / DAY) + 1;
     if (day < 1) continue;
-    // Never go down (reverted vandalism) and skip figures well above today's (vandalism not yet seen).
-    // The rest are capped at today's figure: editors often trim a total a little (an estimate replaced by
-    // the actual, $225.0M → $224.3M), and without the cap the series would end above the current figure,
-    // which switched the live estimate off.
+    // Skip figures well above today's (vandalism not yet seen). A figure a little above today's was corrected
+    // down later (an estimate replaced by the actual, $225.0M → $224.3M, or a switch of source, ₹1,732 cr →
+    // ₹1,638 cr): it is capped at today's figure and does not hold up the days after it, so the growth
+    // reported after the correction still shows. Before this, those days stayed flat at the old peak, the
+    // report looked days old, and the live estimate switched off. Otherwise never go down (reverted vandalism).
     if (r[1] > gross.low * 1.02) continue;
-    const v = Math.min(Math.max(r[1], max), gross.low);
-    max = v;
+    const v = r[1] > gross.low ? gross.low : Math.max(r[1], max);
+    if (r[1] <= gross.low) max = v;
     const tsMs = Date.parse(ts);
     const istHour = new Date(tsMs + IST_OFFSET).getUTCHours();
     points.push({ date, day, v, covered: istHour >= 20 ? date : new Date(istMidnight(date) - DAY + IST_OFFSET).toISOString().slice(0, 10) });
   }
   if (!points.length) return {};
-  const scale = { usd: gross.usd / gross.amount, inr: gross.inr / gross.amount };
+  // A total is never above a later one: a corrected peak comes down to the next lower figure.
+  for (let i = points.length - 2; i >= 0; i--) points[i].v = Math.min(points[i].v, points[i + 1].v);
+  const scale ={ usd: gross.usd / gross.amount, inr: gross.inr / gross.amount };
   const m = (v) => ({ usd: Math.round(v * scale.usd), inr: Math.round(v * scale.inr) });
   const daily = points.map((p, i) => ({ date: p.date, day: p.day, total: m(p.v), added: m(p.v - (i ? points[i - 1].v : 0)) }));
 
