@@ -1,6 +1,7 @@
 name: Update data and deploy
 
-# Runs by itself; nothing here needs a person once the two Cloudflare secrets are set.
+# Runs by itself; nothing here needs a person once the deploy settings for one host are set: the VERCEL_TOKEN secret
+# with the VERCEL_ORG_ID and VERCEL_PROJECT_ID variables, or the two Cloudflare secrets.
 # - Every run decides what is due (scripts/update-data.mjs): a full update about once a day, otherwise only the films
 #   in cinemas. GitHub delays and drops scheduled runs, so this is decided by the data's age, not by the time of day.
 # - A data source that fails or is slow is skipped and the last good data is used; progress is kept for the next run.
@@ -28,6 +29,7 @@ jobs:
     timeout-minutes: 330
     env:
       HAS_CLOUDFLARE: ${{ secrets.CLOUDFLARE_API_TOKEN != '' && secrets.CLOUDFLARE_ACCOUNT_ID != '' }}
+      HAS_VERCEL: ${{ secrets.VERCEL_TOKEN != '' && vars.VERCEL_ORG_ID != '' && vars.VERCEL_PROJECT_ID != '' }}
       CF_PROJECT: ${{ vars.CF_PROJECT || 'livegross' }}
       SITE_URL: ${{ vars.SITE_URL }}
       SITE_NAME: ${{ vars.SITE_NAME }}
@@ -99,9 +101,25 @@ jobs:
           done
           exit 1
 
+      # Uploads out/ as it is (vercel.json inside sets the headers); Vercel builds nothing. One archive instead of
+      # ~14,000 separate files.
+      - name: Deploy to Vercel
+        if: env.HAS_VERCEL == 'true'
+        env:
+          VERCEL_TOKEN: ${{ secrets.VERCEL_TOKEN }}
+          VERCEL_ORG_ID: ${{ vars.VERCEL_ORG_ID }}
+          VERCEL_PROJECT_ID: ${{ vars.VERCEL_PROJECT_ID }}
+        run: |
+          for attempt in 1 2 3; do
+            npx --yes vercel@65.2.0 deploy out --prod --yes --archive=tgz --token="$VERCEL_TOKEN" && exit 0
+            echo "Deploy attempt $attempt failed."
+            [ "$attempt" -lt 3 ] && sleep 90
+          done
+          exit 1
+
       - name: Not deployed
-        if: env.HAS_CLOUDFLARE != 'true'
-        run: echo "::notice::Built but not deployed. Add the CLOUDFLARE_API_TOKEN and CLOUDFLARE_ACCOUNT_ID secrets to put the site online."
+        if: env.HAS_CLOUDFLARE != 'true' && env.HAS_VERCEL != 'true'
+        run: echo "::notice::Built but not deployed. Add the VERCEL_TOKEN secret (with the VERCEL_ORG_ID and VERCEL_PROJECT_ID variables), or the CLOUDFLARE_API_TOKEN and CLOUDFLARE_ACCOUNT_ID secrets, to put the site online."
 
       # GitHub switches off the schedule of a public repository after 60 days without a commit. When the last commit
       # is 45 days old, the run commits a short data summary (data/status.json), so the schedule never stops.

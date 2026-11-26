@@ -9,6 +9,8 @@ export const SITE = {
   url: siteUrl,
   host,
   onPagesDev: host.endsWith('.pages.dev'),
+  /** Still on a host's free address (*.pages.dev, *.vercel.app), not a domain of its own. */
+  onFreeHost: /\.(?:pages\.dev|vercel\.app)$/.test(host),
   /** Who runs the site (a person's or business's name), shown on the about page and as the guides' author. */
   owner: process.env.SITE_OWNER?.trim().slice(0, 80) || null,
 };
@@ -26,6 +28,6 @@ export const ADSENSE_CLIENT = /^ca-pub-\d{16}$/.test(process.env.ADSENSE_CLIENT?
 export const ADSENSE_SLOT = ADSENSE_CLIENT && /^\d{10}$/.test(process.env.ADSENSE_SLOT?.trim() || '') ? process.env.ADSENSE_SLOT!.trim() : null;
 
 /** Contact address. Defaults to contact@your-domain once a custom domain is set (Cloudflare Email Routing). */
-export const CONTACT_EMAIL = [process.env.CONTACT_EMAIL, SITE.onPagesDev ? null : `contact@${host.replace(/^www\./, '')}`]
+export const CONTACT_EMAIL = [process.env.CONTACT_EMAIL, SITE.onFreeHost ? null :`contact@${host.replace(/^www\./, '')}`]
   .find((e): e is string => Boolean(e) && /^[^\s@<>"]+@[^\s@<>"]+\.[a-z]{2,}$/i.test(e!)) || null;
 
