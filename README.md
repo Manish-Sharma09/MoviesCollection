@@ -9,11 +9,11 @@ Everything is automatic and costs nothing:
 | Film list, box office, budget | Wikidata (open data) + English Wikipedia infoboxes |
 | All-time worldwide chart | Wikipedia's "List of highest-grossing films" |
 | Posters, photos of people | Wikipedia infoboxes, Wikimedia Commons |
-| Exchange rates | frankfurter.dev (European Central Bank) |
-| Daily update | GitHub Actions (scheduled) |
+| Exchange rates | frankfurter.dev (European Central Bank), fawazahmed0/exchange-api (every other currency) |
+| Updates every 3 hours | GitHub Actions (scheduled) |
 | Hosting, email forwarding | Cloudflare Pages, Cloudflare Email Routing |
 
-The site is built with [Next.js](https://nextjs.org/) (App Router, React, TypeScript) as a **static export**: `next build` renders every page to HTML once, and those files are uploaded. No database or server is needed, and the site is rebuilt every day.
+The site is built with [Next.js](https://nextjs.org/) (App Router, React, TypeScript) as a **static export**: `next build` renders every page to HTML once, and those files are uploaded. No database or server is needed, and the site is rebuilt every 3 hours.
 
 ## Run it on your computer
 
@@ -21,8 +21,9 @@ Needs Node.js 22.18 or newer (the data scripts import the shared TypeScript file
 
 ```bash
 npm install         # once
-npm run fetch       # download everything (first run ~60–90 minutes, Wikipedia allows ~10 requests/minute)
+npm run fetch       # download everything (first run ~1½–2 hours, Wikipedia allows ~10 requests/minute)
 npm run fetch:live  # quick refresh of films in cinemas only
+node scripts/update-data.mjs  # what the scheduled run does: full update if the last is 20+ hours old, else fetch:live
 npm run dev         # work on the site with hot reload at http://localhost:3000 (pages render on demand)
 npm run build       # merge the data and build the whole site into out/
 npm run build:site  # rebuild out/ only, when data/movies.json is already up to date
@@ -51,8 +52,10 @@ npm run deploy      # upload out/ to Cloudflare Pages by hand (needs `npx wrangl
      - `CONTACT_EMAIL`: shown on the contact and legal pages. Defaults to `contact@yourdomain.com` once `SITE_URL` is a custom domain.
      - `SITE_OWNER`: the person or business that runs the site, named on the about page and as the author of the guides. Without it they say "an independent project run from India" and "the LiveGross team" (with your `SITE_NAME`).
      - `CF_PROJECT`: Pages project name (default `livegross`)
-     - `CONTACT_UA`: e.g. `LiveGross/1.0 (https://yourdomain.com)` so Wikipedia knows who is fetching
-5. Open the **Actions** tab, choose **Update data and deploy** and press **Run workflow**. After that it runs by itself every day at 06:00 IST.
+     - `CONTACT_UA`: the User-Agent sent to Wikipedia and Wikidata. Not needed: by default it names your `SITE_URL`, which Wikimedia asks for.
+5. Open the **Actions** tab, choose **Update data and deploy** and press **Run workflow**. After that it runs by itself every 3 hours.
+
+When you create the Cloudflare API token, leave its expiry (TTL) empty so it never runs out.
 
 ### When you add your own domain
 
@@ -60,6 +63,22 @@ npm run deploy      # upload out/ to Cloudflare Pages by hand (needs `npx wrangl
 - The next build writes a `_headers` rule that sends `X-Robots-Tag: noindex` for `*.pages.dev`, so Google only indexes your domain. (While `SITE_URL` is still a pages.dev address that rule is left out, otherwise the whole site would be hidden.)
 - Turn on **Email Routing** for the domain in Cloudflare and forward `contact@yourdomain.com` to your Gmail.
 - Add the site to Google Search Console and Bing Webmaster Tools and submit `https://yourdomain.com/sitemap.xml`.
+
+## Running unattended
+
+Once the two Cloudflare secrets are set, nothing needs doing by hand. `.github/workflows/update.yml` runs every 3 hours and takes care of the rest:
+
+- **What is due**: `scripts/update-data.mjs` does a full update when the last one is 20+ hours old, otherwise it only re-reads the films in cinemas. This depends on the data's age, not on a time slot, because GitHub delays and drops scheduled runs.
+- **A source fails or is slow**: every fetch script has its own time limit. One that fails or runs out of time is skipped; the build uses the last good data and the next run carries on. Everything in `data/raw/` is saved to the Actions cache at the end of every run, even a failed one, so a run that starts with no data takes a few runs to catch up, not a person.
+- **A source changes its format**: `scripts/check-data.mjs --before-deploy` does not deploy a build that has fewer than 90% of the last good build's films. The site online stays as it was.
+- **Exchange rates**: the ECB rates plus every other currency from a second free source, so no rate needs updating by hand.
+- **Growing catalogue**: Cloudflare Pages takes 20,000 files. When films and people pages would pass that, a person needs more films to get a page (`src/lib/data.ts`), instead of the build failing.
+- **GitHub's 60-day rule**: GitHub switches off scheduled workflows in a public repository after 60 days without a commit. When the last commit is 45 days old, the run commits `data/status.json` so the schedule keeps going. If you push from your computer after that, run `git pull` first.
+- **Deploy hiccups**: the deploy is tried three times.
+
+GitHub emails you when a run fails. That happens only when something stays wrong: a deploy that failed three times, a build held back by the film-count check, or (checked once a day) a data source that has not been read for days (`scripts/check-data.mjs --freshness`). The site keeps showing the last good data meanwhile; the run's log and summary name the source.
+
+What stays with you: renewing the domain (turn on auto-renew at the registrar) and keeping the repository public (scheduled runs are free only for public repositories; a private one would run out of free minutes).
 
 ## High-quality banners (your own images)
 
@@ -184,7 +203,7 @@ Films released in the last 90 days also get two things on their own pages:
 - **Collection graph** (above the day-wise table): the worldwide total day by day, or what each day added (a Total / Per day switch; one measure at a time, never two scales on one chart). For a film in cinemas the line continues, dashed, to the live estimate now, and today's column shows the estimate so far, lighter. Hover, tap or use the arrow keys to read any day; the chart follows the ₹ / $ switch.
 - **Live estimate**: between reports, the browser (`src/components/client/Live.tsx`, model in `src/lib/live.ts`) estimates the running total from the last three days' earnings. It adjusts for the weekday, eases off about 6% a day, and spreads each day across show times. It moves in 5-minute steps, is marked with a red dot and labelled as an estimate, and stops if no report has arrived for four days.
 
-On GitHub, `npm run fetch:live` runs every 3 hours and only re-reads films in cinemas. The full update runs once a day.
+On GitHub, the update runs every 3 hours and usually only re-reads films in cinemas. When the last full update is 20 hours old, the run does a full one instead (see "Running unattended").
 
 ## How the numbers are chosen
 
@@ -215,16 +234,19 @@ scripts/fetch-wikidata.mjs   films, box office and budget statements from Wikida
 scripts/fetch-wikipedia.mjs  gross / budget / starring from Wikipedia infoboxes
 scripts/fetch-history.mjs    day-by-day totals from Wikipedia edit history (films in cinemas)
 scripts/fetch-lists.mjs      films on Wikipedia's highest-grossing lists (vandalism guard)
-scripts/fetch-rates.mjs      exchange rates
+scripts/fetch-rates.mjs      exchange rates (ECB, plus every other currency from fawazahmed0/exchange-api)
 scripts/fetch-posters.mjs    film posters from Wikipedia infoboxes (no key)
 scripts/fetch-people.mjs     photos of actors and directors from Wikidata + Wikimedia Commons (no key)
 scripts/fetch-boxoffice.mjs  India net / India gross / overseas totals from Wikipedia 'Box office' sections (no key)
 scripts/fetch-worldwide-chart.mjs  all-time chart from Wikipedia's List of highest-grossing films
+scripts/update-data.mjs      runs the fetch scripts with time limits; one failing never stops the rest (npm run fetch / fetch:live / fetch:art)
 scripts/merge.mjs            picks one figure per film → data/movies.json
+scripts/check-data.mjs       held-back deploy when many films vanish; alert when a source stops being read
 scripts/postbuild.mjs        error pages, removes RSC payload files, _headers, ads.txt, file-count check
 scripts/serve.mjs            local preview of out/
 scripts/make-icons.mjs       renders PNG icons, favicon.ico and og-image.png with Chrome
 scripts/lib/wikitext.mjs     wikitext + money parser (tested in scripts/wikitext.test.mjs)
 scripts/lib/wikipedia-chart.mjs  all-time chart table parser (tested in scripts/wikipedia-chart.test.mjs)
-.github/workflows/update.yml daily update and deploy
+.github/workflows/update.yml update and deploy every 3 hours
+data/status.json             short data summary, committed only to keep GitHub's schedule switched on
 ```

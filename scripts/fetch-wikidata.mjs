@@ -1,7 +1,8 @@
 // Pulls film metadata, box office and budget statements from Wikidata (CC0, free, no key).
 // Output: data/raw/wikidata.json
-import { writeFile, readFile, mkdir, rm } from 'node:fs/promises';
+import { readFile, mkdir, rm } from 'node:fs/promises';
 import { sparql, sleep } from './lib/http.mjs';
+import { saveJson } from './lib/steps.mjs';
 
 const OUT = new URL('../data/raw/wikidata.json', import.meta.url);
 const PARTIAL = new URL('../data/raw/wikidata.partial.json', import.meta.url);
@@ -210,13 +211,13 @@ async function main() {
     process.stdout.write(`  ${Math.min(i + BATCH, ids.length)}/${ids.length}\r`);
     if ((i / BATCH) % 10 === 9) {
       const snapshot = Object.fromEntries([...done].map((id) => [id, films[id]]));
-      await writeFile(PARTIAL, JSON.stringify({ films: snapshot }));
+      await saveJson(PARTIAL, { films: snapshot });
     }
     await sleep(1500); // the query service allows ~60s of query time per minute per client
   }
   console.log();
 
-  await writeFile(OUT, JSON.stringify({ fetchedAt: new Date().toISOString(), films, boxOffice, budget }));
+  await saveJson(OUT, { fetchedAt: new Date().toISOString(), films, boxOffice, budget });
   await rm(PARTIAL, { force: true });
   console.log(`Saved ${Object.keys(films).length} films → data/raw/wikidata.json`);
 }

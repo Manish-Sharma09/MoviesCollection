@@ -293,9 +293,16 @@ for (const f of films) {
     p.roles.add(role);
   }
 }
+// Cloudflare Pages takes at most 20,000 files per site (scripts/postbuild.mjs). Film pages always come first; should the
+// catalogue grow that far, a person then needs more films for a page of their own, instead of the build failing.
+const PAGE_BUDGET = 19_000;
+const OTHER_PAGES = 1_000; // home, lists, years, languages, Hindi pages, guides, assets (~400 today)
+const personRoom = PAGE_BUDGET - OTHER_PAGES - films.length - upcoming.length;
+let minFilms = 3;
+while ([...peopleMap.values()].filter((p) => p.films.size >= minFilms).length > personRoom && minFilms < 50) minFilms++;
 export const people = new Map<string, Person>(
   [...peopleMap.values()]
-    .filter((p) => p.films.size >= 3)
+    .filter((p) => p.films.size >= minFilms)
     .map((p) => [p.slug, { ...p, films: [...p.films.values()].sort((a, b) => b.gross.usd - a.gross.usd) }])
 );
 

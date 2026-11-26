@@ -1,13 +1,20 @@
 name: Update data and deploy
 
+# Runs by itself; nothing here needs a person once the two Cloudflare secrets are set.
+# - Every run decides what is due (scripts/update-data.mjs): a full update about once a day, otherwise only the films
+#   in cinemas. GitHub delays and drops scheduled runs, so this is decided by the data's age, not by the time of day.
+# - A data source that fails or is slow is skipped and the last good data is used; progress is kept for the next run.
+# - A build that has lost many films is not deployed (scripts/check-data.mjs); the site stays as it was.
+# - GitHub emails the repository owner when a run fails: a deploy that failed three times, a build that was held back,
+#   or a source that has not been read for days.
 on:
   schedule:
-    - cron: '30 0 * * *' # full update every day at 06:00 IST
-    - cron: '0 */3 * * *' # films in cinemas: new figures every 3 hours
+    # Every 3 hours, off the hour: GitHub delays and drops more runs at :00.
+    - cron: '23 */3 * * *'
   workflow_dispatch: {}
 
 permissions:
-  contents: read
+  contents: write # only for the keep-alive commit at the end
 
 concurrency:
   group: update-site
@@ -16,41 +23,42 @@ concurrency:
 jobs:
   update:
     runs-on: ubuntu-latest
-    timeout-minutes: 150
+    # A normal run takes about 20 minutes. Only a run with no saved data comes near this, and every data script has its
+    # own time limit inside it (scripts/update-data.mjs), so the data read so far is still saved for the next run.
+    timeout-minutes: 330
+    env:
+      HAS_CLOUDFLARE: ${{ secrets.CLOUDFLARE_API_TOKEN != '' && secrets.CLOUDFLARE_ACCOUNT_ID != '' }}
+      CF_PROJECT: ${{ vars.CF_PROJECT || 'livegross' }}
+      SITE_URL: ${{ vars.SITE_URL }}
+      SITE_NAME: ${{ vars.SITE_NAME }}
+      SITE_OWNER: ${{ vars.SITE_OWNER }}
+      CONTACT_EMAIL: ${{ vars.CONTACT_EMAIL }}
+      CONTACT_UA: ${{ vars.CONTACT_UA }}
+      GA_ID: ${{ vars.GA_ID }}
+      ADSENSE_CLIENT: ${{ vars.ADSENSE_CLIENT }}
+      ADSENSE_SLOT: ${{ vars.ADSENSE_SLOT }}
+      IMDB_RATINGS: ${{ vars.IMDB_RATINGS }}
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v7
 
-      - uses: actions/setup-node@v4
+      - uses: actions/setup-node@v7
         with:
           node-version: 24
           cache: npm
 
       - run: npm ci
 
-      # Keeps Wikidata metadata and Wikipedia results between runs, so a daily run only
-      # re-reads new releases and anything older than a week. Restored here and saved by its own
-      # step after the build: a plain actions/cache only saves when the whole job succeeds, so a
-      # failed deploy used to throw the fetched data away and every run started from nothing.
+      # Everything the data scripts have read (data/raw/) is kept between runs, so a run only re-reads what is due.
+      # It is saved by its own step below whatever happens in between, so even a failed run keeps its progress.
       - name: Restore fetched data
-        uses: actions/cache/restore@v4
+        uses: actions/cache/restore@v6
         with:
-          path: |
-            data/raw/wikidata.json
-            data/raw/wikipedia.json
-            data/raw/history.json
-            data/raw/rates.json
-            data/raw/cpi.json
-            data/raw/lists.json
-            data/raw/people.json
-            data/raw/posters.json
-            data/raw/worldwide-lifetime.json
-            data/raw/ratings.json
-            data/raw/pageviews.json
-          key: raw-data-${{ github.run_id }}
+          path: data/raw
+          key: raw-data-${{ github.run_id }}-${{ github.run_attempt }}
           restore-keys: raw-data-
 
-      # Next.js build cache (compiled code and downloaded fonts) makes rebuilds faster.
-      - uses: actions/cache@v4
+      # Next.js build cache (compiled code) makes rebuilds faster.
+      - uses: actions/cache@v6
         with:
           path: .next/cache
           key: next-${{ hashFiles('package-lock.json') }}-${{ github.run_id }}
@@ -58,66 +66,58 @@ jobs:
 
       - run: npm test
 
-      # The 3-hourly run only re-reads films in cinemas; it needs last full run's data to start from.
       - name: Fetch data
         id: fetch
-        run: |
-          if [ "$SCHEDULE" = '0 */3 * * *' ] && [ -f data/raw/wikidata.json ]; then
-            npm run fetch:live
-          else
-            npm run fetch
-          fi
-        env:
-          SCHEDULE: ${{ github.event.schedule }}
-          CONTACT_UA: ${{ vars.CONTACT_UA }}
-          IMDB_RATINGS: ${{ vars.IMDB_RATINGS }}
+        run: node scripts/update-data.mjs
 
-      # merge → posters and photos → next build (static export to out/) → postbuild (error pages, _headers, ads.txt, file count)
+      # merge → posters, photos, India/overseas figures, page views → next build (static export to out/) → postbuild
       - name: Build site
         run: npm run build
-        env:
-          CONTACT_UA: ${{ vars.CONTACT_UA }}
-          SITE_URL: ${{ vars.SITE_URL }}
-          SITE_NAME: ${{ vars.SITE_NAME }}
-          GA_ID: ${{ vars.GA_ID }}
-          ADSENSE_CLIENT: ${{ vars.ADSENSE_CLIENT }}
-          ADSENSE_SLOT: ${{ vars.ADSENSE_SLOT }}
-          CONTACT_EMAIL: ${{ vars.CONTACT_EMAIL }}
-          SITE_OWNER: ${{ vars.SITE_OWNER }}
-          IMDB_RATINGS: ${{ vars.IMDB_RATINGS }}
 
-      # Saved whether or not the build and deploy work, as long as the fetch did, so the next
-      # 3-hourly run can do its quick in-cinemas refresh instead of a two-hour full fetch.
+      - name: Check the build before deploying
+        run: node scripts/check-data.mjs --before-deploy
+
       - name: Save fetched data
-        if: ${{ !cancelled() && steps.fetch.outcome == 'success' }}
-        uses: actions/cache/save@v4
+        if: ${{ !cancelled() }}
+        uses: actions/cache/save@v6
         with:
-          path: |
-            data/raw/wikidata.json
-            data/raw/wikipedia.json
-            data/raw/history.json
-            data/raw/rates.json
-            data/raw/cpi.json
-            data/raw/lists.json
-            data/raw/people.json
-            data/raw/posters.json
-            data/raw/worldwide-lifetime.json
-            data/raw/ratings.json
-            data/raw/pageviews.json
-          key: raw-data-${{ github.run_id }}
-
-      # Creates the Cloudflare Pages project on the first run; fails harmlessly once it exists.
-      - name: Create Cloudflare Pages project
-        continue-on-error: true
-        uses: cloudflare/wrangler-action@v3
-        with:
-          apiToken: ${{ secrets.CLOUDFLARE_API_TOKEN }}
-          accountId: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
-          command: pages project create ${{ vars.CF_PROJECT || 'livegross' }} --production-branch=main
+          path: data/raw
+          key: raw-data-${{ github.run_id }}-${{ github.run_attempt }}
 
       - name: Deploy to Cloudflare Pages
-        uses: cloudflare/wrangler-action@v3
-        with:
-          apiToken: ${{ secrets.CLOUDFLARE_API_TOKEN }}
-          accountId: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
-          command: pages deploy out --project-name=${{ vars.CF_PROJECT || 'livegross' }} --branch=main
+        if: env.HAS_CLOUDFLARE == 'true'
+        env:
+          CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
+          CLOUDFLARE_ACCOUNT_ID: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
+        run: |
+          # Creates the Pages project on the first run; fails harmlessly once it exists.
+          npx --yes wrangler@4 pages project create "$CF_PROJECT" --production-branch=main || true
+          for attempt in 1 2 3; do
+            npx --yes wrangler@4 pages deploy out --project-name="$CF_PROJECT" --branch=main && exit 0
+            echo "Deploy attempt $attempt failed."
+            [ "$attempt" -lt 3 ] && sleep 90
+          done
+          exit 1
+
+      - name: Not deployed
+        if: env.HAS_CLOUDFLARE != 'true'
+        run: echo "::notice::Built but not deployed. Add the CLOUDFLARE_API_TOKEN and CLOUDFLARE_ACCOUNT_ID secrets to put the site online."
+
+      # GitHub switches off the schedule of a public repository after 60 days without a commit. When the last commit
+      # is 45 days old, the run commits a short data summary (data/status.json), so the schedule never stops.
+      - name: Keep the schedule running
+        if: ${{ !cancelled() && github.event_name == 'schedule' }}
+        run: |
+          age=$(( $(date +%s) - $(git log -1 --format=%ct) ))
+          if [ "$age" -lt $(( 45 * 86400 )) ]; then echo "Last commit $(( age / 86400 )) days ago; nothing to do."; exit 0; fi
+          node scripts/check-data.mjs --status > data/status.json
+          git config user.name 'github-actions[bot]'
+          git config user.email '41898282+github-actions[bot]@users.noreply.github.com'
+          git add data/status.json
+          git commit -m 'Keep the scheduled update running'
+          git push || echo "::warning::Keep-alive commit not pushed; the next run tries again."
+
+      # Once a day (with the full update): fails, so GitHub sends an email, when a source has not been read for days.
+      - name: Check every data source is still being read
+        if: ${{ !cancelled() && steps.fetch.outputs.mode == 'full' }}
+        run: node scripts/check-data.mjs --freshness

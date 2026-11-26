@@ -2,8 +2,8 @@
 // infoboxes: a film claiming ₹700 crore or $1.2 billion has to be on the matching list.
 // (Real cases: "Prince" (2010) edited to "$1,000 million", "Ratsasan" to "₹5060 crore".)
 // Output: data/raw/lists.json
-import { writeFile } from 'node:fs/promises';
 import { getJson, sleep } from './lib/http.mjs';
+import { saveJson } from './lib/steps.mjs';
 
 const OUT = new URL('../data/raw/lists.json', import.meta.url);
 const LISTS = {
@@ -35,8 +35,10 @@ async function main() {
     for (const page of pages) for (const t of await linkedTitles(page)) all.add(t);
     out[key] = [...all].sort();
     console.log(`${key}: ${out[key].length} linked articles`);
+    // scripts/merge.mjs ignores lists this short, so a renamed or blanked page must not replace the last good copy.
+    if (out[key].length <= 100) throw new Error(`Only ${out[key].length} ${key} articles linked; keeping the last good lists.`);
   }
-  await writeFile(OUT, JSON.stringify(out));
+  await saveJson(OUT, out);
   console.log('Saved → data/raw/lists.json');
 }
 
